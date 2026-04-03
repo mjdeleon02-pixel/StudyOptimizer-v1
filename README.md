@@ -40,6 +40,7 @@ StudyOptimizer is a premium, all-in-one web application designed to streamline s
 ### Backend
 * **Django**: Robust Python framework for secure and scalable architecture.
 * **PostgreSQL / SQLite**: Flexible database options for high-performance data persistence.
+* **Cloudinary**: Cloud-based storage for securely managing and serving student-uploaded study materials.
 * **Python-Docx & PyPDF2**: Backend libraries for deep document parsing.
 
 ### Frontend
@@ -60,13 +61,17 @@ StudyOptimizer is a premium, all-in-one web application designed to streamline s
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-repo/StudyOptimizer.git
-   cd StudyOptimizer
+   git clone https://github.com/mardnts28/StudyOptimizer.git
+   cd Study_Optimizer
    ```
 
 2. **Install dependencies**:
    ```bash
-   pip install django PyPDF2 python-docx
+   pip install -r requirements.txt
+   ```
+   *Alternatively, install core packages individually:*
+   ```bash
+   pip install django PyPDF2 python-docx cloudinary django-cloudinary-storage python-decouple
    ```
 
 3. **Database Migration**:
