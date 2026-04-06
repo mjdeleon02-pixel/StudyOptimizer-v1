@@ -141,6 +141,7 @@ class SummarizedDocument(models.Model):
     subject      = models.CharField(max_length=100, default='General')
     summary_text = models.TextField()
     content_hash = models.CharField(max_length=64, blank=True, help_text="SHA-256 integrity hash")
+    document_file = models.FileField(upload_to='summary_files/', null=True, blank=True)
     emoji        = models.CharField(max_length=10, default='📄')
     created_at   = models.DateTimeField(auto_now_add=True)
 

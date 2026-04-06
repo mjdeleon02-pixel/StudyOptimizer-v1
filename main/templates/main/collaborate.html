@@ -129,8 +129,13 @@
                                     <i data-lucide="book-open" class="w-3 h-3 text-gray-400"></i>
                                     <span class="text-xs text-gray-500 font-medium" x-text="summary.subject"></span>
                                 </div>
-                                <!-- Preview -->
-                                <p class="text-sm text-gray-600 leading-relaxed line-clamp-3 mb-4" x-text="summary.preview"></p>
+                                <!-- Preview with View Button -->
+                                <div class="mb-4">
+                                    <p class="text-sm text-gray-600 leading-relaxed line-clamp-3" x-html="summary.preview"></p>
+                                    <button @click="openViewModal(summary)" class="mt-2 text-xs font-bold text-red-700 hover:text-red-900 transition-colors">
+                                        Read more...
+                                    </button>
+                                </div>
                                 <!-- Tags -->
                                 <div class="flex items-center gap-2 flex-wrap mb-4">
                                     <template x-for="tag in summary.tags" :key="tag">
@@ -151,6 +156,7 @@
                                         <i data-lucide="eye" class="w-4 h-4"></i>
                                         <span x-text="summary.views + ' views'"></span>
                                     </div>
+                                    <!-- Helpful Button -->
                                     <button class="ml-auto flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-green-600 transition-colors">
                                         <i data-lucide="thumbs-up" class="w-4 h-4"></i>
                                         Helpful
@@ -233,6 +239,62 @@
             </div>
         </div>
 
+        <!-- View Full Summary Modal -->
+        <div x-show="isViewModalOpen" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" style="display: none;" x-transition>
+            <div @click.away="isViewModalOpen = false" class="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] shadow-2xl flex flex-col relative overflow-hidden">
+                <div class="bg-gradient-to-r from-red-50 to-white p-6 border-b border-gray-100 flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg" :style="'background-color: ' + viewingSummary?.authorColor" x-text="viewingSummary?.authorInitials"></div>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900" x-text="viewingSummary?.title"></h2>
+                            <p class="text-xs text-gray-500 font-medium" x-text="'Shared by ' + viewingSummary?.author + ' • ' + viewingSummary?.timeAgo"></p>
+                        </div>
+                    </div>
+                    <button @click="isViewModalOpen = false" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                        <i data-lucide="x" class="w-6 h-6 text-gray-400"></i>
+                    </button>
+                </div>
+                
+                <div class="p-8 overflow-y-auto space-y-6">
+                    <div class="flex items-center gap-3">
+                        <span class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold uppercase tracking-wider" x-text="viewingSummary?.category"></span>
+                        <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold uppercase tracking-wider" x-text="viewingSummary?.subject"></span>
+                    </div>
+                    
+                    <div class="prose prose-sm max-w-none">
+                        <p class="text-gray-700 leading-loose whitespace-pre-line text-base" x-html="viewingSummary?.preview"></p>
+                    </div>
+                    
+                    <template x-if="viewingSummary?.file_url">
+                        <div class="p-6 bg-gradient-to-br from-red-50 to-white border-2 border-dashed border-red-200 rounded-[2rem] flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <div class="w-14 h-14 bg-red-100/50 rounded-2xl flex items-center justify-center text-red-700 shadow-inner">
+                                    <i data-lucide="file-text" class="w-7 h-7"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-gray-900">Shared Resource</div>
+                                    <div class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Download Attachment</div>
+                                </div>
+                            </div>
+                            <a :href="viewingSummary.file_url" download class="w-12 h-12 bg-red-700 hover:bg-red-800 text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-red-200 hover:-translate-y-1 transition-all">
+                                <i data-lucide="download" class="w-5 h-5"></i>
+                            </a>
+                        </div>
+                    </template>
+                </div>
+                
+                <div class="p-6 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <button @click="toggleLike(viewingSummary?.id)" :class="viewingSummary?.liked ? 'text-red-600' : 'text-gray-400 hover:text-red-500'" class="flex items-center gap-2 font-bold transition-all">
+                            <i data-lucide="heart" class="w-5 h-5" :class="{'fill-current': viewingSummary?.liked}"></i>
+                            <span x-text="viewingSummary?.likes"></span>
+                        </button>
+                    </div>
+                    <button @click="isViewModalOpen = false" class="text-sm font-bold text-gray-400 hover:text-gray-900 transition-colors uppercase tracking-widest">Close Reader</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Share Dialog -->
         <div x-show="isShareDialogOpen" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" style="display: none;">
             <div @click.away="isShareDialogOpen = false" class="bg-white rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
@@ -255,6 +317,19 @@
                         <label class="block font-semibold text-sm mb-1">Summary Content / Preview</label>
                         <textarea x-model="shareForm.preview" placeholder="Paste your summary here to share with classmates..." rows="5" class="w-full border-2 border-gray-200 rounded-lg p-3 text-sm resize-none focus:outline-none focus:border-red-300 transition-colors"></textarea>
                     </div>
+                    <div class="p-4 bg-red-50 border-2 border-dashed border-red-200 rounded-xl">
+                        <label class="block font-bold text-xs text-red-700 uppercase tracking-widest mb-2">Upload File (Optional)</label>
+                        <input type="file" @change="shareForm.file = $event.target.files[0]" 
+                               class="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-red-100 file:text-red-700 hover:file:bg-red-200 transition-all">
+                        <p class="text-[10px] text-gray-400 mt-2 font-medium">Supported: .pdf, .docx, .pptx, .jpg, .png</p>
+                    </div>
+                    
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border-2 border-gray-100">
+                        <input x-model="shareForm.is_anonymous" type="checkbox" id="anonCheck" class="w-4 h-4 text-red-600 focus:ring-red-500 rounded border-gray-300">
+                        <label for="anonCheck" class="text-sm font-bold text-gray-700 cursor-pointer select-none">Share Anonymously 👤</label>
+                        <span class="text-[10px] text-gray-400">(Your name will be hidden from others)</span>
+                    </div>
+
                     <button @click="handleShare()" :disabled="!shareForm.title || !shareForm.subject || !shareForm.preview" class="w-full py-3 bg-red-700 hover:bg-red-800 disabled:bg-gray-300 text-white rounded-lg font-semibold shadow-lg transition-colors flex items-center justify-center gap-2">
                         <i data-lucide="sparkles" class="w-4 h-4"></i>
                         Share with Community 🚀
@@ -335,15 +410,17 @@
                 searchQuery: '',
                 filterPeriod: 'all',
                 isShareDialogOpen: false,
-                shareForm: { title: '', subject: '', period: 'General', preview: '' },
+                shareForm: { title: '', subject: '', category: 'General', preview: '', file: null, is_anonymous: false },
                 activeTab: 'community',
                 commentModal: { isOpen: false, summaryId: null },
                 newComment: '',
                 commentsData: {},
                 sharedSummaries: JSON.parse('{{ materials_json|safe }}'),
+                isViewModalOpen: false,
+                viewingSummary: null,
                 
                 get mySummaries() {
-                    return this.sharedSummaries.filter(s => s.author === '{{ user.username }}');
+                    return this.sharedSummaries.filter(s => s.is_mine);
                 },
                 
                 filteredSummaries() {
@@ -387,18 +464,26 @@
                 async handleShare() {
                     if (this.shareForm.title && this.shareForm.subject && this.shareForm.preview) {
                         try {
+                            const formData = new FormData();
+                            formData.append('title', this.shareForm.title);
+                            formData.append('subject', this.shareForm.subject);
+                            formData.append('preview', this.shareForm.preview);
+                            formData.append('is_anonymous', this.shareForm.is_anonymous);
+                            if (this.shareForm.file) {
+                                formData.append('file', this.shareForm.file);
+                            }
+
                             const response = await fetch('/collaborate/share/', {
                                 method: 'POST',
                                 headers: {
-                                    'X-CSRFToken': '{{ csrf_token }}',
-                                    'Content-Type': 'application/json'
+                                    'X-CSRFToken': '{{ csrf_token }}'
                                 },
-                                body: JSON.stringify(this.shareForm)
+                                body: formData
                             });
                             const data = await response.json();
                             if (data.status === 'success') {
                                 this.sharedSummaries.unshift(data.material);
-                                this.shareForm = { title: '', subject: '', period: '', preview: '' };
+                                this.shareForm = { title: '', subject: '', preview: '', file: null, is_anonymous: false };
                                 this.isShareDialogOpen = false;
                                 this.$nextTick(() => lucide.createIcons());
                             }
@@ -406,6 +491,12 @@
                             console.error('Error sharing summary:', error);
                         }
                     }
+                },
+                
+                openViewModal(summary) {
+                    this.viewingSummary = summary;
+                    this.isViewModalOpen = true;
+                    this.$nextTick(() => { if(window.lucide) { lucide.createIcons(); } });
                 },
                 
                 async openComments(id) {

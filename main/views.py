@@ -834,12 +834,13 @@ def summarize_doc(request):
         final_summary, title_line = generate_document_summary(content, file_name)
 
         doc = SummarizedDocument.objects.create(
-            user         = request.user,
-            file_name    = bleach.clean(file_name),
-            category     = 'General',
-            summary_text = final_summary,
-            content_hash = hashlib.sha256(final_summary.encode('utf-8')).hexdigest(),
-            emoji        = '📄',
+            user          = request.user,
+            file_name     = bleach.clean(file_name),
+            category      = 'General',
+            summary_text  = final_summary,
+            content_hash  = hashlib.sha256(final_summary.encode('utf-8')).hexdigest(),
+            document_file = uploaded_file,
+            emoji         = '📄',
         )
         AuditLog.objects.create(
             user    = request.user,

@@ -49,29 +49,43 @@ def generate_document_summary(text):
         return "The AI was unable to summarize this document at this time."
 
 def calculate_user_metrics(user):
-    """Calculates dashboard metrics for the user."""
-    total_tasks     = Task.objects.filter(user=user).count()
-    completed_tasks = Task.objects.filter(user=user, completed=True).count()
+    """Calculates dashboard and progress analytics."""
+    now = timezone.now()
+    week_ago = now - timedelta(days=7)
+
+    # 1. Basic Stats
+    tasks_all       = Task.objects.filter(user=user)
+    completed_tasks = tasks_all.filter(completed=True).count()
     summaries_count = SummarizedDocument.objects.filter(user=user).count()
     
-    # Calculate level (1 level every 5 tasks)
+    # 2. Level Calculation
     user_level = (completed_tasks // 5) + 1
-    next_level_progress = int(((completed_tasks % 5) / 5) * 100) if (completed_tasks % 5) != 0 or completed_tasks == 0 else 100
-    
-    # Calculate completion rate
-    completion_rate = round((completed_tasks / total_tasks * 100), 1) if total_tasks > 0 else 0
-    
-    # Calculate study hours (estimate: 2 hours per task + 1 hour per summary)
-    study_hours = (completed_tasks * 2) + summaries_count
-    
+    next_level_progress = ((completed_tasks % 5) / 5) * 100
+
+    # 3. Weekly Hours Trend (Summary count per day for last 7 days)
+    weekly_hours_trend = []
+    for i in range(6, -1, -1):
+        day = (now - timedelta(days=i)).date()
+        day_h = (tasks_all.filter(completed=True, created_at__date=day).count() * 2) + \
+                SummarizedDocument.objects.filter(user=user, created_at__date=day).count()
+        weekly_hours_trend.append(day_h)
+
+    # 4. Subject Distribution
+    subject_qs = tasks_all.values('subject').annotate(count=Count('id')).order_by('-count')[:5]
+    subject_labels = [s['subject'] or 'General' for s in subject_qs]
+    subject_data   = [s['count'] for s in subject_qs]
+
     return {
         'user_level':          user_level,
-        'next_level_progress': next_level_progress,
+        'next_level_progress': int(next_level_progress),
         'docs_count':          summaries_count,
         'completed_count':     completed_tasks,
-        'total_tasks':         total_tasks,
-        'completion_rate':     completion_rate,
-        'study_hours':         study_hours,
+        'total_tasks':         tasks_all.count(),
+        'completion_rate':     round((completed_tasks / tasks_all.count() * 100), 1) if tasks_all.count() > 0 else 0,
+        'study_hours':         (completed_tasks * 2) + summaries_count,
+        'weekly_hours_trend':  weekly_hours_trend,
+        'subject_labels':      subject_labels,
+        'subject_data':        subject_data,
     }
 
 def generate_batch_synthesis(summaries_qs):
