@@ -38,7 +38,6 @@ import bleach
 import pyotp
 import qrcode
 import qrcode.image.svg
-import google.generativeai as genai
 from django_ratelimit.decorators import ratelimit
 
 from .models import (

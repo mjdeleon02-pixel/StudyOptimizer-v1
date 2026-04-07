@@ -1,5 +1,5 @@
 import os
-import google.generativeai as genai
+from google import genai
 from django.db.models import Count, Sum
 from .models import Task, SummarizedDocument, SharedMaterial
 from django.utils import timezone
@@ -7,7 +7,7 @@ from datetime import timedelta
 
 # Configure Gemini AI
 from decouple import config
-genai.configure(api_key=config('GOOGLE_API_KEY', default=''))
+ai_client = genai.Client(api_key=config('GOOGLE_API_KEY', default=''))
 
 def extract_text_from_file(file):
     """
@@ -40,13 +40,15 @@ def generate_document_summary(text, file_name='Document'):
         return "No content to summarize.", file_name
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = (
             f"You are a study assistant. Summarize the following document titled '{file_name}' "
             f"clearly and concisely for a student. Focus on key concepts, definitions, and important points.\n\n"
             f"{text[:10000]}"
         )
-        response = model.generate_content(prompt)
+        response = ai_client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
         summary_text = response.text
         # Extract a short title from the first line if possible
         first_line = summary_text.strip().split('\n')[0][:120]
@@ -121,9 +123,11 @@ def generate_batch_synthesis(doc_ids, user):
         return "No summaries selected."
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = f"Synthesize these individual study summaries into one master study guide:\n\n{combined_text[:10000]}"
-        response = model.generate_content(prompt)
+        response = ai_client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
         return response.text
     except Exception as e:
         return f"Synthesis error: {e}"
