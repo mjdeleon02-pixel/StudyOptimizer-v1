@@ -174,26 +174,20 @@ class PasswordHistory(models.Model):
 
 
 class AuditLog(models.Model):
-    user               = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    action             = models.CharField(max_length=100)
-    details_encrypted  = models.TextField()
-    timestamp          = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    action = models.CharField(max_length=255)
+    details = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    previous_hash = models.CharField(max_length=64, blank=True)
+    current_hash = models.CharField(max_length=64, blank=True)
 
-    @property
-    def details(self):
-        try:
-            return _CIPHER_SUITE.decrypt(self.details_encrypted.encode('utf-8')).decode('utf-8')
-        except Exception:
-            return ""
-
-    @details.setter
-    def details(self, value):
-        self.details_encrypted = _CIPHER_SUITE.encrypt(str(value).encode('utf-8')).decode('utf-8')
-
-    def __str__(self):
-        username = self.user.username if self.user else 'System'
-        return f"[{self.timestamp}] {username}: {self.action}"
-
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            last_entry = AuditLog.objects.order_by("-timestamp").first()
+            self.previous_hash = last_entry.current_hash if last_entry else "GENESIS"
+            payload = f"{self.user}{self.action}{self.details}{self.timestamp}{self.previous_hash}"
+            self.current_hash = hashlib.sha256(payload.encode()).hexdigest()
+        super().save(*args, **kwargs)
 
 class KnownIP(models.Model):
     user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='known_ips')

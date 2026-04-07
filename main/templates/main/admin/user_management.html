@@ -166,6 +166,19 @@
   </div>
 </div>
 
+<!-- Admin Password Modal -->
+<div class="modal-overlay" id="passwordModal">
+  <div class="modal-box">
+    <div class="modal-title">Confirm Admin Password</div>
+    <div class="modal-sub">Enter your password to delete this account.</div>
+    <input type="password" id="adminPasswordInput" class="modal-input" placeholder="Admin Password">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('passwordModal')">Cancel</button>
+      <button class="btn-confirm btn-danger" id="passwordConfirmBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <!-- View Profile Modal -->
 <div class="modal-overlay" id="profileModal">
   <div class="modal-box">
@@ -366,5 +379,62 @@ document.getElementById('userSearch').addEventListener('input', function() {
     row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
   });
 });
+
+
+function doDeleteAccount(btn) {
+  const row  = getRow(btn);
+  const id   = row.dataset.id;
+  const name = row.dataset.name;
+
+  // Open password modal
+  openModal('passwordModal');
+  const input = document.getElementById('adminPasswordInput');
+  input.value = '';
+  input.focus();
+
+  const confirmBtn = document.getElementById('passwordConfirmBtn');
+  confirmBtn.onclick = () => {
+    const password = input.value.trim();
+    if (!password) {
+      toast('Please enter your password.', false);
+      return;
+    }
+
+    closeModal('passwordModal');
+
+    // Send POST request to delete endpoint
+    fetch(`/admin-panel/users/${id}/delete/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': CSRF,
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({ confirm_password: password })
+    })
+    .then(async response => {
+      // Parse JSON even if status is not 200
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Show server error message (403, 400, etc.)
+        toast(data.message || 'Failed to delete user', false);
+        return;
+      }
+
+      if (data.status === 'ok') {
+        row.remove(); // remove user row from UI
+        toast(`${data.deleted_name}'s account deleted 🗑️`);
+      } else {
+        toast(data.message || 'Failed to delete user', false);
+      }
+    })
+    .catch(() => {
+      // Only trigger this if network request actually failed
+      toast('Network error. Check your connection or server.', false);
+    });
+  };
+}
+
 </script>
 {% endblock %}

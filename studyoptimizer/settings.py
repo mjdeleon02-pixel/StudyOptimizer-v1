@@ -27,8 +27,14 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = ['*']
+import socket
 
+IS_LOCAL = DEBUG or socket.gethostname() in ["localhost", "127.0.0.1"]
+
+if IS_LOCAL:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+else:
+    ALLOWED_HOSTS = ['your-production-domain.com']
 
 # Application definition
 
@@ -208,15 +214,19 @@ SESSION_SAVE_EVERY_REQUEST = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # Security Best Practices (TLS/HTTPS, HSTS) - Enabled implicitly on production
-if not DEBUG:
+if not IS_LOCAL:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_HSTS_SECONDS = 31536000 # 1 year
+    SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+else:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 
 # Content Security Policy (CSP) - Hardened Configuration
 CSP_DEFAULT_SRC = ("'self'", "https://res.cloudinary.com")

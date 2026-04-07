@@ -47,4 +47,5 @@ urlpatterns = [
     path('admin-panel/users/<int:user_id>/reset-pw/',   views.admin_reset_pw,      name='admin_reset_pw'),
     path('admin-panel/users/<int:user_id>/grant-admin/', views.admin_grant_admin,  name='admin_grant_admin'),
     path('admin-panel/users/<int:user_id>/delete/',     views.admin_delete_user,   name='admin_delete_user'),
+   
 ]

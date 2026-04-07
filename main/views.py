@@ -19,6 +19,7 @@ from django.contrib.sessions.models import Session
 from django.utils import timezone
 from django.conf import settings
 from django.core.mail import send_mail
+from .utils import log_action, send_security_alert
 
 import os
 try:
@@ -546,39 +547,61 @@ def admin_analytics(request):
 
 # ── ADMIN — AUDIT LOGS ────────────────────────────────────────────────────────
 
+# views.py
+from .models import AuditLog, SummarizedDocument
+from datetime import date
+
 @login_required(login_url='login')
 @user_passes_test(is_admin, login_url='login')
 def admin_audit(request):
-    today           = date.today()
-    new_users_today = User.objects.filter(date_joined__date=today).count()
-    inactive_users  = User.objects.filter(is_active=False).count()
+    today = date.today()
+    
+    # 1. Fetch REAL logs from the database
+    raw_logs = AuditLog.objects.all().order_by('-timestamp')[:50]
+    
+    security_logs = []
+    for log in raw_logs:
+        # STRIDE Logic: Categorize logs by action name
+        is_critical = any(word in log.action for word in ['DELETE', 'FAILED', 'UNAUTHORIZED'])
+        
+        security_logs.append({
+            'icon_class': 'red' if is_critical else 'green',
+            'icon_fa': 'shield-halved' if not is_critical else 'triangle-exclamation',
+            'title': log.action.replace('_', ' ').title(),
+            'performed_by': log.user.username if log.user else "System",
+            'created_at': log.timestamp,
+            'ip_address': log.details.split('|')[0].replace('IP:', '').strip() if 'IP:' in log.details else '—',
+            'source': log.details.split('|')[-1].strip() if '|' in log.details else log.details,
+            'badge_class': 'badge-error' if is_critical else 'badge-success',
+            'severity': 'CRITICAL' if is_critical else 'INFO'
+        })
 
-    security_logs = [
-        {'icon': 'green', 'title': f'New user registered: {u.email}', 'by': u.email,
-         'time': u.date_joined.strftime('%Y-%m-%d %H:%M:%S'), 'ip': '—', 'badge': 'success', 'badge_label': 'success'}
-        for u in User.objects.filter(date_joined__date=today).order_by('-date_joined')[:5]
-    ] + [
-        {'icon': 'blue', 'title': f'Inactive account: {u.email}', 'by': 'admin',
-         'time': u.date_joined.strftime('%Y-%m-%d %H:%M:%S'), 'ip': '—', 'badge': 'info', 'badge_label': 'info'}
-        for u in User.objects.filter(is_active=False).order_by('-date_joined')[:3]
-    ]
-    if not security_logs:
-        security_logs = [{'icon': 'blue', 'title': 'No new security events today.', 'by': 'system', 'time': '—', 'ip': '—', 'badge': 'info', 'badge_label': 'info'}]
+    # 2. Stats for the top cards
+    security_events_count = AuditLog.objects.filter(timestamp__date=today).count()
+    warnings_count = AuditLog.objects.filter(
+        timestamp__date=today, 
+        action__icontains='FAILED'
+    ).count()
 
-    system_logs = [
-        {'icon': 'green', 'title': f'Document summarized: {d.file_name}', 'by': d.user.username,
-         'time': d.created_at.strftime('%Y-%m-%d %H:%M:%S'), 'badge': 'success', 'badge_label': 'success'}
-        for d in SummarizedDocument.objects.select_related('user').order_by('-created_at')[:8]
-    ]
-    if not system_logs:
-        system_logs = [{'icon': 'blue', 'title': 'No documents summarized yet.', 'by': 'System', 'time': '—', 'badge': 'info', 'badge_label': 'info'}]
+    # 3. System Logs (e.g., from SummarizedDocument)
+    system_docs = SummarizedDocument.objects.all().order_by('-created_at')[:10]
+    system_logs = [{
+        'icon_class': 'blue',
+        'icon_fa': 'file-lines',
+        'title': f"Document Summarized: {doc.file_name}",
+        'performed_by': doc.user.username,
+        'created_at': doc.created_at,
+        'severity': 'Success',
+        'badge_class': 'badge-info'
+    } for doc in system_docs]
 
     return render(request, 'main/admin/audit_logs.html', {
-        'security_events': new_users_today + inactive_users,
-        'warnings_today':  inactive_users,
-        'avg_rating':      '0',
-        'security_logs':   security_logs,
-        'system_logs':     system_logs,
+        'security_events': security_events_count,
+        'warnings_today': warnings_count,
+        'avg_rating': '4.8', # Or pull from your feedback model
+        'security_logs': security_logs,
+        'system_logs': system_logs,
+        'feedback_list': [], # Add your feedback logic here later
     })
 
 
@@ -630,6 +653,70 @@ def admin_delete_post(request, post_id):
     )
     post.delete()
     return JsonResponse({'status': 'success'})
+
+@login_required
+@user_passes_test(is_admin)
+def admin_disable_user(request, user_id):
+    target_user = get_object_or_404(User, id=user_id)
+    
+    # Perform the action
+    target_user.is_active = False
+    target_user.save()
+
+    # 1. Create In-App Notification (using your existing Model)
+    Notification.objects.create(
+        user=target_user,
+        message="Your account has been disabled by an administrator. Please contact support if you believe this is an error."
+    )
+
+    # 2. Log for Repudiation
+    log_action(request.user, "USER_DISABLED", f"Disabled account for {target_user.email}", request)
+
+    messages.warning(request, f"Account {target_user.username} has been disabled.")
+    return redirect('admin_user_directory')
+
+# ── ADMIN — USER MANAGEMENT ──────────────────────────────────────────────────
+
+@login_required(login_url='login')
+@user_passes_test(is_admin, login_url='login')
+@require_POST
+def admin_perform_delete_user(request, user_id):
+    target_user = get_object_or_404(User, id=user_id)
+    admin_password = request.POST.get('admin_password')
+
+    # 1. Verify Admin Password (STRIDE: Elevation of Privilege)
+    if not request.user.check_password(admin_password):
+        # Log the failed attempt as a security event
+        log_action(
+            user=request.user, 
+            action="UNAUTHORIZED_DELETE_ATTEMPT", 
+            details=f"Wrong password entered while trying to delete user: {target_user.username}",
+            request=request # Pass request to capture IP if you updated utils.py
+        )
+        messages.error(request, "Critical: Incorrect admin password. This attempt has been logged.")
+        return redirect('admin_user_directory')
+
+    # 2. Log the Success (STRIDE: Non-repudiation)
+    username_deleted = target_user.username
+    log_action(
+        user=request.user,
+        action="USER_ACCOUNT_DELETED",
+        details=f"Permanently deleted student account: {username_deleted}",
+        request=request
+    )
+
+    # 3. Security Alert (STRIDE: Information Disclosure/Confidentiality)
+    # Notify the admin that a high-level action was just completed via their account
+    send_security_alert(
+        user=request.user,
+        subject="User Account Deletion Executed",
+        message=f"You have successfully deleted the account belonging to {username_deleted}."
+    )
+
+    # 4. Final Execution
+    target_user.delete()
+    messages.success(request, f"Account {username_deleted} has been wiped from the system.")
+    return redirect('admin_user_directory')
 
 
 # ── USER — DASHBOARD ──────────────────────────────────────────────────────────
@@ -1430,9 +1517,24 @@ def admin_grant_admin(request, user_id):
 @user_passes_test(is_admin, login_url='login')
 @require_POST
 def admin_delete_user(request, user_id):
-    u = get_object_or_404(User, id=user_id)
-    if u.is_superuser or u == request.user:
-        return JsonResponse({'status': 'error', 'message': 'Cannot delete superuser/self'}, status=403)
-    name = u.username
-    u.delete()
-    return JsonResponse({'status': 'ok', 'deleted_name': name})
+    data = json.loads(request.body)
+    confirm_password = data.get("confirm_password")
+
+    if not authenticate(request=request, username=request.user.username, password=confirm_password):
+        return JsonResponse({"status": "error", "message": "Password confirmation failed"}, status=403)
+
+    target = get_object_or_404(User, id=user_id)
+
+    if target.is_superuser or target == request.user:
+        return JsonResponse({"status": "error", "message": "Cannot delete this account"}, status=403)
+
+    deleted_username = target.username
+    target.delete()
+
+    AuditLog.objects.create(
+        user=request.user,
+        action="Admin Deleted User",
+        details=f"Deleted user {deleted_username}"
+    )
+
+    return JsonResponse({"status": "ok", "deleted_name": deleted_username})
