@@ -774,11 +774,17 @@ def dashboard(request):
         'daysLeft': max(0, (t.due_date - today).days),
     } for t in Task.objects.filter(user=request.user, completed=False).order_by('due_date')[:4]]
 
-    daily_hours = [
-        (Task.objects.filter(user=request.user, completed=True, created_at__date=start_of_week + timedelta(days=i)).count() * 2) +
-        SummarizedDocument.objects.filter(user=request.user, created_at__date=start_of_week + timedelta(days=i)).count()
-        for i in range(7)
-    ]
+    # Optimized aggregation (STRIDE - Avoid resource exhaustion)
+    task_qs = Task.objects.filter(user=request.user, completed=True, created_at__date__gte=start_of_week, created_at__date__lte=today).values('created_at__date').annotate(c=Count('id'))
+    doc_qs  = SummarizedDocument.objects.filter(user=request.user, created_at__date__gte=start_of_week, created_at__date__lte=today).values('created_at__date').annotate(c=Count('id'))
+    
+    task_map = {r['created_at__date']: r['c'] for r in task_qs}
+    doc_map  = {r['created_at__date']: r['c'] for r in doc_qs}
+    
+    daily_hours = []
+    for i in range(7):
+        d = start_of_week + timedelta(days=i)
+        daily_hours.append((task_map.get(d, 0) * 2) + doc_map.get(d, 0))
 
     recent_summaries = SummarizedDocument.objects.filter(user=request.user).order_by('-created_at')[:5]
     summaries_list = [{
@@ -1400,6 +1406,11 @@ def download_shared_pdf(request, material_id):
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 
     material = get_object_or_404(SharedMaterial, id=material_id)
+    
+    # Permission Check (STRIDE - Information Disclosure)
+    if material.is_hidden and not (request.user.is_staff or request.user == material.author):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("This resource has been hidden by a moderator.")
     buffer   = io.BytesIO()
     pdf_doc  = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
     styles   = getSampleStyleSheet()
