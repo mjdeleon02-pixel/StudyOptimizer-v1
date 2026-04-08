@@ -38,6 +38,7 @@ import bleach
 import pyotp
 import qrcode
 import qrcode.image.svg
+import hashlib
 from django_ratelimit.decorators import ratelimit
 
 from .models import (
@@ -574,8 +575,12 @@ def admin_audit(request):
     
     security_logs = []
     for log in raw_logs:
-        # STRIDE Logic: Categorize logs by action name
-        is_critical = any(word in log.action for word in ['DELETE', 'FAILED', 'UNAUTHORIZED'])
+        # STRIDE Logic: Verify cryptographic integrity
+        payload = f"{log.user}{log.action}{log.details}{log.timestamp}{log.previous_hash}"
+        calc_hash = hashlib.sha256(payload.encode()).hexdigest()
+        is_tampered = (log.current_hash != calc_hash)
+
+        is_critical = is_tampered or any(word in log.action.upper() for word in ['DELETE', 'FAILED', 'UNAUTHORIZED', 'REVOKED'])
         
         security_logs.append({
             'icon_class': 'red' if is_critical else 'green',
@@ -585,8 +590,8 @@ def admin_audit(request):
             'created_at': log.timestamp,
             'ip_address': log.details.split('|')[0].replace('IP:', '').strip() if 'IP:' in log.details else '—',
             'source': log.details.split('|')[-1].strip() if '|' in log.details else log.details,
-            'badge_class': 'badge-error' if is_critical else 'badge-success',
-            'severity': 'CRITICAL' if is_critical else 'INFO'
+            'badge_class': 'badge-error' if is_tampered else ('badge-warning' if is_critical else 'badge-success'),
+            'severity': 'TAMPERED' if is_tampered else ('CRITICAL' if is_critical else 'INFO')
         })
 
     # 2. Stats for the top cards
@@ -602,7 +607,7 @@ def admin_audit(request):
         'icon_class': 'blue',
         'icon_fa': 'file-lines',
         'title': f"Document Summarized: {doc.file_name}",
-        'performed_by': doc.user.username,
+        'performed_by': doc.user.username if doc.user else "Unknown User",
         'created_at': doc.created_at,
         'severity': 'Success',
         'badge_class': 'badge-info'

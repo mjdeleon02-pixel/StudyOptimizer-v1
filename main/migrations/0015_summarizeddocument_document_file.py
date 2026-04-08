@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('main', '0013_sharedmaterial_is_hidden_sharedmaterial_period_and_more'),
+        ('main', '0014_remove_auditlog_details_encrypted_and_more'),
     ]
 
     operations = [
