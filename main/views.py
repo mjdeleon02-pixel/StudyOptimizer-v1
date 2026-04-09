@@ -191,9 +191,12 @@ def login_view(request):
         email    = request.POST.get('email', '').strip()
         password = request.POST.get('password', '').strip()
         try:
-            user_obj = User.objects.get(email=email)
-            user = authenticate(request, username=user_obj.username, password=password)
-        except User.DoesNotExist:
+            user_obj = User.objects.filter(email=email).first()
+            if not user_obj:
+                user = None
+            else:
+                user = authenticate(request, username=user_obj.username, password=password)
+        except Exception:
             user = None
         if user is not None:
             return _start_mfa(request, user)
