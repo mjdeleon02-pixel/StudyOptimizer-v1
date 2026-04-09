@@ -89,9 +89,9 @@ TEMPLATES = [
 WSGI_APPLICATION = 'studyoptimizer.wsgi.application'
 
 # Email configuration
-# For local: uses Gmail with App Password
-# For production: configured via environment variables for SendGrid, Mailgun, etc.
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# For local/testing: uses console backend to prevent 500 errors if SMTP is not configured
+# For production: set EMAIL_BACKEND to SMTP in environment variables
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
