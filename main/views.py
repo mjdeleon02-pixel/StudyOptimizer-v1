@@ -119,8 +119,8 @@ def register(request):
         if request.POST.get('_hp_field'):
             return HttpResponse('Registration successful! (Not really — bot detected)', status=200)
 
-        username  = request.POST.get('username', '').strip()
-        email     = request.POST.get('email', '').strip()
+        username  = request.POST.get('username', '').strip().lower()
+        email     = request.POST.get('email', '').strip().lower()
         password  = request.POST.get('password', '')
         password2 = request.POST.get('password2', '')
 
@@ -295,8 +295,10 @@ def mfa_verify(request):
             if pyotp.TOTP(profile.totp_secret).verify(entered):
                 user.backend = 'django.contrib.auth.backends.ModelBackend'
 
-                # New IP detection (STRIDE)
-                current_ip = request.META.get('REMOTE_ADDR', '127.0.0.1')
+                # New IP detection (STRIDE - Handles Proxy/Render IPs)
+                x_ff = request.META.get('HTTP_X_FORWARDED_FOR')
+                current_ip = x_ff.split(',')[0].strip() if x_ff else request.META.get('REMOTE_ADDR', '127.0.0.1')
+                
                 if not KnownIP.objects.filter(user=user, ip_address=current_ip).exists():
                     send_security_alert(
                         user,
@@ -1471,17 +1473,18 @@ def view_shared_file(request, material_id):
         import cloudinary
         import cloudinary.utils
         
-        # Explicitly configure cloudinary with the latest settings
-        cl_config = settings.CLOUDINARY_STORAGE
-        if 'CLOUDINARY_URL' in cl_config:
-            cloudinary.config(cloudinary_url=cl_config['CLOUDINARY_URL'], secure=True)
-        else:
-            cloudinary.config(
-                cloud_name=cl_config.get('CLOUD_NAME'),
-                api_key=cl_config.get('API_KEY'),
-                api_secret=cl_config.get('API_SECRET'),
-                secure=True
-            )
+        # Explicitly configure cloudinary with safety check
+        cl_config = getattr(settings, 'CLOUDINARY_STORAGE', {})
+        if cl_config:
+            if 'CLOUDINARY_URL' in cl_config:
+                cloudinary.config(cloudinary_url=cl_config['CLOUDINARY_URL'], secure=True)
+            else:
+                cloudinary.config(
+                    cloud_name=cl_config.get('CLOUD_NAME'),
+                    api_key=cl_config.get('API_KEY'),
+                    api_secret=cl_config.get('API_SECRET'),
+                    secure=True
+                )
         
         # Priority 1: Check Local Storage (Development/Fallback)
         local_path = os.path.join(settings.MEDIA_ROOT, material.file.name)
