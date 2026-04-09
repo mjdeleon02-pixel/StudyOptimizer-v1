@@ -221,6 +221,10 @@ if CLOUDINARY_URL or CL_NAME:
         },
     }
     
+    # Legacy compatibility for django-cloudinary-storage
+    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.RawMediaCloudinaryStorage"
+    STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+    
     if CLOUDINARY_URL:
         CLOUDINARY_STORAGE = {
             'CLOUDINARY_URL': CLOUDINARY_URL,
