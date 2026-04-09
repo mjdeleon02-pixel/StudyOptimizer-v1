@@ -144,9 +144,9 @@
                                 </div>
                                 <!-- Actions -->
                                 <div class="flex items-center gap-4 pt-3 border-t border-gray-100">
-                                    <button @click="toggleLike(summary.id)" :class="summary.liked ? 'text-red-600' : 'text-gray-500 hover:text-red-500'" class="flex items-center gap-1.5 text-sm font-medium transition-all hover:scale-105">
-                                        <i data-lucide="heart" class="w-4 h-4" :class="{'fill-current': summary.liked}"></i>
-                                        <span x-text="summary.likes"></span>
+                                    <button @click="toggleLike(summary.id)" :class="summary.liked ? 'text-red-600 scale-110' : 'text-gray-500 hover:text-red-500'" class="flex items-center gap-1.5 text-sm font-medium transition-all hover:scale-110 active:scale-95">
+                                        <i data-lucide="heart" class="w-4 h-4 transition-colors" :class="{'fill-current': summary.liked}"></i>
+                                        <span x-text="summary.likes" class="tabular-nums"></span>
                                     </button>
                                     <button @click="openComments(summary.id)" class="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-blue-500 transition-colors">
                                         <i data-lucide="message-circle" class="w-4 h-4"></i>
@@ -305,23 +305,6 @@
                         </div>
                     </template>
                     
-                    <!-- Fallback if no file exists (Download as Summary PDF) -->
-                    <template x-if="viewingSummary?.id && !viewingSummary?.file_url">
-                        <div class="p-6 bg-gradient-to-br from-gray-50 to-white border-2 border-dashed border-gray-200 rounded-[2rem] flex items-center justify-between">
-                            <div class="flex items-center gap-4">
-                                <div class="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400">
-                                    <i data-lucide="file-type" class="w-7 h-7"></i>
-                                </div>
-                                <div>
-                                    <div class="font-bold text-gray-900">Summary Transcript</div>
-                                    <div class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Available as PDF</div>
-                                </div>
-                            </div>
-                            <a :href="'/collaborate/download/' + viewingSummary.id + '/'" download class="w-12 h-12 bg-gray-600 hover:bg-gray-700 text-white rounded-full flex items-center justify-center shadow-lg transition-all">
-                                <i data-lucide="download" class="w-5 h-5"></i>
-                            </a>
-                        </div>
-                    </template>
                 </div>
                 
                 <div class="p-6 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
