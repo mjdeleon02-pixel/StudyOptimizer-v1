@@ -327,63 +327,69 @@ def logout_view(request):
 @login_required(login_url='login')
 @user_passes_test(is_admin, login_url='login')
 def admin_dashboard(request):
-    now        = timezone.now()
-    month_ago  = now - timedelta(days=30)
-    prev_month = now - timedelta(days=60)
+    try:
+        now        = timezone.now()
+        month_ago  = now - timedelta(days=30)
+        prev_month = now - timedelta(days=60)
 
-    total_users   = User.objects.count()
-    users_pct     = _pct_change(
-        User.objects.filter(date_joined__gte=prev_month, date_joined__lt=month_ago).count(),
-        User.objects.filter(date_joined__gte=month_ago).count(),
-    )
-    total_materials = SharedMaterial.objects.count()
-    materials_pct   = _pct_change(
-        SharedMaterial.objects.filter(created_at__gte=prev_month, created_at__lt=month_ago).count(),
-        SharedMaterial.objects.filter(created_at__gte=month_ago).count(),
-    )
-    ai_summaries  = SummarizedDocument.objects.count()
-    summaries_pct = _pct_change(
-        SummarizedDocument.objects.filter(created_at__gte=prev_month, created_at__lt=month_ago).count(),
-        SummarizedDocument.objects.filter(created_at__gte=month_ago).count(),
-    )
-    active_sessions = Session.objects.filter(expire_date__gte=now).count()
-
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    study_labels, study_data = [], []
-    for i in range(6, -1, -1):
-        day      = today_start - timedelta(days=i)
-        next_day = day + timedelta(days=1)
-        study_labels.append(day.strftime('%a'))
-        study_data.append(
-            SharedMaterial.objects.filter(created_at__gte=day, created_at__lt=next_day).count()
+        total_users   = User.objects.count()
+        users_pct     = _pct_change(
+            User.objects.filter(date_joined__gte=prev_month, date_joined__lt=month_ago).count(),
+            User.objects.filter(date_joined__gte=month_ago).count(),
         )
+        total_materials = SharedMaterial.objects.count()
+        materials_pct   = _pct_change(
+            SharedMaterial.objects.filter(created_at__gte=prev_month, created_at__lt=month_ago).count(),
+            SharedMaterial.objects.filter(created_at__gte=month_ago).count(),
+        )
+        ai_summaries  = SummarizedDocument.objects.count()
+        summaries_pct = _pct_change(
+            SummarizedDocument.objects.filter(created_at__gte=prev_month, created_at__lt=month_ago).count(),
+            SummarizedDocument.objects.filter(created_at__gte=month_ago).count(),
+        )
+        active_sessions = Session.objects.filter(expire_date__gte=now).count()
 
-    subject_qs     = Task.objects.filter(completed=True).values('subject').annotate(count=Count('id')).order_by('-count')[:6]
-    subject_labels = [r['subject'] or 'General' for r in subject_qs]
-    subject_data   = [r['count'] for r in subject_qs]
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        study_labels, study_data = [], []
+        for i in range(6, -1, -1):
+            day      = today_start - timedelta(days=i)
+            next_day = day + timedelta(days=1)
+            study_labels.append(day.strftime('%a'))
+            study_data.append(
+                SharedMaterial.objects.filter(created_at__gte=day, created_at__lt=next_day).count()
+            )
 
-    events = []
-    for u in User.objects.filter(date_joined__gte=now - timedelta(hours=24)).order_by('-date_joined')[:5]:
-        events.append({'color': 'green', 'message': f'New user <strong>{u.get_full_name() or u.username}</strong> registered.', 'ts': u.date_joined})
-    for m in SharedMaterial.objects.select_related('author').filter(created_at__gte=now - timedelta(hours=24)).order_by('-created_at')[:5]:
-        events.append({'color': 'blue', 'message': f'<strong>{m.author.get_full_name() or m.author.username}</strong> shared <strong>{m.title}</strong>.', 'ts': m.created_at})
-    for s in SummarizedDocument.objects.select_related('user').filter(created_at__gte=now - timedelta(hours=24)).order_by('-created_at')[:5]:
-        events.append({'color': 'orange', 'message': f'AI Summary generated for <strong>{s.file_name}</strong>.', 'ts': s.created_at})
+        subject_qs     = Task.objects.filter(completed=True).values('subject').annotate(count=Count('id')).order_by('-count')[:6]
+        subject_labels = [r['subject'] or 'General' for r in subject_qs]
+        subject_data   = [r['count'] for r in subject_qs]
 
-    events.sort(key=lambda e: e['ts'], reverse=True)
-    recent_activity = [{'color': e['color'], 'message': e['message'], 'time': _time_ago(e['ts'])} for e in events[:10]]
+        events = []
+        for u in User.objects.filter(date_joined__gte=now - timedelta(hours=24)).order_by('-date_joined')[:5]:
+            events.append({'color': 'green', 'message': f'New user <strong>{u.get_full_name() or u.username}</strong> registered.', 'ts': u.date_joined})
+        for m in SharedMaterial.objects.select_related('author').filter(created_at__gte=now - timedelta(hours=24)).order_by('-created_at')[:5]:
+            events.append({'color': 'blue', 'message': f'<strong>{m.author.get_full_name() or m.author.username}</strong> shared <strong>{m.title}</strong>.', 'ts': m.created_at})
+        for s in SummarizedDocument.objects.select_related('user').filter(created_at__gte=now - timedelta(hours=24)).order_by('-created_at')[:5]:
+            events.append({'color': 'orange', 'message': f'AI Summary generated for <strong>{s.file_name}</strong>.', 'ts': s.created_at})
 
-    return render(request, 'main/admin/dashboard.html', {
-        'total_users':     total_users,     'users_pct':     users_pct,
-        'total_materials': total_materials, 'materials_pct': materials_pct,
-        'ai_summaries':    ai_summaries,    'summaries_pct': summaries_pct,
-        'active_sessions': active_sessions,
-        'study_labels':    json.dumps(study_labels),
-        'study_data':      json.dumps(study_data),
-        'subject_labels':  json.dumps(subject_labels),
-        'subject_data':    json.dumps(subject_data),
-        'recent_activity': recent_activity,
-    })
+        events.sort(key=lambda e: e['ts'], reverse=True)
+        recent_activity = [{'color': e['color'], 'message': e['message'], 'time': _time_ago(e['ts'])} for e in events[:10]]
+
+        return render(request, 'main/admin/dashboard.html', {
+            'total_users':     total_users,     'users_pct':     users_pct,
+            'total_materials': total_materials, 'materials_pct': materials_pct,
+            'ai_summaries':    ai_summaries,    'summaries_pct': summaries_pct,
+            'active_sessions': active_sessions,
+            'study_labels':    json.dumps(study_labels),
+            'study_data':      json.dumps(study_data),
+            'subject_labels':  json.dumps(subject_labels),
+            'subject_data':    json.dumps(subject_data),
+            'recent_activity': recent_activity,
+        })
+    except Exception as e:
+        import traceback
+        print(f"CRITICAL ERROR in admin_dashboard: {e}")
+        traceback.print_exc()
+        return HttpResponse(f"Admin Dashboard Error: {e}", status=500)
 
 
 # ── ADMIN — USER MANAGEMENT ───────────────────────────────────────────────────
