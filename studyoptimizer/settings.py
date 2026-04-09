@@ -203,7 +203,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
-    BASE_DIR / 'main' / 'static',
+    # Any additional global static folders would go here
 ]
 
 MEDIA_URL = '/media/'
@@ -219,7 +219,7 @@ if CLOUDINARY_URL or CL_NAME:
             "BACKEND": "cloudinary_storage.storage.RawMediaCloudinaryStorage",
         },
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
     
