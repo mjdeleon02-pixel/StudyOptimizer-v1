@@ -241,3 +241,10 @@ def verify_document_integrity(sender, instance, **kwargs):
     calc_hash = hashlib.sha256(instance.summary_text.encode('utf-8')).hexdigest()
     if not instance.content_hash or instance.content_hash != calc_hash:
         instance.content_hash = calc_hash
+
+class SystemSetting(models.Model):
+    key   = models.CharField(max_length=50, unique=True)
+    value = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return f"{self.key}: {self.value}"

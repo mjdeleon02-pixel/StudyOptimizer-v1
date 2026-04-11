@@ -262,7 +262,8 @@ AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=30)
 AXES_LOCKOUT_TEMPLATE = 'main/lockout.html'
 AXES_RESET_ON_SUCCESS = True
-AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
+AXES_ENABLE_ADMIN = True
 
 # Session Management
 SESSION_COOKIE_AGE = 1800  # 30 minutes timeout
@@ -287,7 +288,6 @@ if not IS_LOCAL:
     # Security Middleware (Axes) settings for smoother admin access
     AXES_ONLY_USER_FAILURES = True
     AXES_RESET_ON_SUCCESS = True
-    AXES_LOCKOUT_TEMPLATE = None # Use default or custom
 else:
     SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False
