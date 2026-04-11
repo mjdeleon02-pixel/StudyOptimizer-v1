@@ -295,25 +295,29 @@ def mfa_verify(request):
             if pyotp.TOTP(profile.totp_secret).verify(entered):
                 user.backend = 'django.contrib.auth.backends.ModelBackend'
 
-                # New IP detection (STRIDE - Handles Proxy/Render IPs)
-                x_ff = request.META.get('HTTP_X_FORWARDED_FOR')
-                current_ip = x_ff.split(',')[0].strip() if x_ff else request.META.get('REMOTE_ADDR', '127.0.0.1')
-                
-                if not KnownIP.objects.filter(user=user, ip_address=current_ip).exists():
-                    send_security_alert(
-                        user,
-                        'New Login Device Detected',
-                        f'Your account was just logged into from a new device or location.\n\n'
-                        f'IP Address: {current_ip}\nDate: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}',
-                    )
-                    KnownIP.objects.create(user=user, ip_address=current_ip)
-                else:
-                    KnownIP.objects.filter(user=user, ip_address=current_ip).update(last_used=datetime.now())
+                try:
+                    # New IP detection (STRIDE - Handles Proxy/Render IPs)
+                    x_ff = request.META.get('HTTP_X_FORWARDED_FOR')
+                    current_ip = x_ff.split(',')[0].strip() if x_ff else request.META.get('REMOTE_ADDR', '127.0.0.1')
+                    
+                    if not KnownIP.objects.filter(user=user, ip_address=current_ip).exists():
+                        send_security_alert(
+                            user,
+                            'New Login Device Detected',
+                            f'Your account was just logged into from a new device or location.\n\n'
+                            f'IP Address: {current_ip}\nDate: {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}',
+                        )
+                        KnownIP.objects.create(user=user, ip_address=current_ip)
+                    else:
+                        KnownIP.objects.filter(user=user, ip_address=current_ip).update(last_used=timezone.now())
 
-                login(request, user)
-                for k in ('mfa_user_id', 'mfa_method'):
-                    request.session.pop(k, None)
-                return redirect('admin_dashboard' if is_admin(user) else 'dashboard')
+                    login(request, user)
+                    for k in ('mfa_user_id', 'mfa_method'):
+                        request.session.pop(k, None)
+                    return redirect('admin_dashboard' if is_admin(user) else 'dashboard')
+                except Exception as e:
+                    print(f"Error during MFA completion: {e}")
+                    messages.error(request, 'An internal error occurred while completing your login. Please try again.')
             messages.error(request, 'Invalid authenticator code.')
 
     return render(request, 'main/mfa_verify.html', {'mfa_method': mfa_method, 'email': user.email})

@@ -166,17 +166,17 @@ def calculate_user_metrics(user):
 
     # 3. Study Streak (consecutive days with completed tasks)
     streak = 0
-    check_day = now.date()
-    for _ in range(365):
-        had_activity = (
-            tasks_all.filter(completed=True, created_at__date=check_day).exists() or
-            SummarizedDocument.objects.filter(user=user, created_at__date=check_day).exists()
-        )
-        if had_activity:
-            streak += 1
-            check_day -= timedelta(days=1)
-        else:
-            break
+    
+    # Get all active dates from both tasks and summaries in one go
+    active_dates = set(
+        list(tasks_all.filter(completed=True).values_list('created_at__date', flat=True)) +
+        list(SummarizedDocument.objects.filter(user=user).values_list('created_at__date', flat=True))
+    )
+    
+    check_day = timezone.now().date()
+    while check_day in active_dates:
+        streak += 1
+        check_day -= timedelta(days=1)
 
     # 4. Weekly Hours Trend (last 7 days)
     weekly_hours_trend = []
