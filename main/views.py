@@ -1471,13 +1471,15 @@ def download_summary_pdf(request, doc_id):
             Paragraph(f'<b>Study Reviewer: {safe_text(clean_title)}</b>', title_style),
             Spacer(1, 25),
         ]
-        text_content = re.sub(r'</?(ul|UL|li|LI)>', '', text_content)\n        text_content = text_content.replace('<li>', '\n• ').replace('</li>', '')\n        for p_text in text_content.split('\n'):
+        text_content = re.sub(r'</?(ul|UL|li|LI)>', '', text_content)
+        text_content = text_content.replace('<li>', '\n• ').replace('</li>', '')
+        for p_text in text_content.split('\n'):
             p_text = safe_text(p_text.strip())
             if not p_text:
                 continue
             p_text = p_text.replace('<', '&lt;').replace('>', '&gt;')
             p_text = p_text.replace('&lt;b&gt;', '<b>').replace('&lt;/b&gt;', '</b>')
-            if p_text.startswith(('- ', '* ', 'â€¢ ')) or re.match(r'^\d+\.', p_text):
+            if p_text.startswith(('-', '*', '- ')) or re.match(r'^\d+\.', p_text):
                 lst = ParagraphStyle('ListStyle', parent=body_style, leftIndent=25, bulletIndent=10, spaceAfter=8)
                 elements.append(Paragraph(p_text, lst))
             else:
@@ -1715,7 +1717,9 @@ def download_shared_pdf(request, material_id):
             Spacer(1, 20),
         ]
         
-        text_content = re.sub(r'</?(ul|UL|li|LI)>', '', text_content)\n        text_content = text_content.replace('<li>', '\n• ').replace('</li>', '')\n        for p_text in text_content.split('\n'):
+        text_content = re.sub(r'</?(ul|UL|li|LI)>', '', text_content)
+        text_content = text_content.replace('<li>', '\n• ').replace('</li>', '')
+        for p_text in text_content.split('\n'):
             p_text = safe_text(p_text.strip())
             if not p_text: continue
             p_text = p_text.replace('<', '&lt;').replace('>', '&gt;')
