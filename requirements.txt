@@ -1,5 +1,5 @@
 absl-py==2.1.0
-annotated-doc==0.0.0
+annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.3.0
 asgiref==3.1.1
