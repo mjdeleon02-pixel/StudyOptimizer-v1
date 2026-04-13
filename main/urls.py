@@ -41,9 +41,18 @@ urlpatterns = [
     path('admin-panel/ai/',             views.admin_ai,            name='admin_ai'),
     path('admin-panel/analytics/',      views.admin_analytics,     name='admin_analytics'),
     path('admin-panel/audit-logs/',     views.admin_audit,         name='admin_audit'),
+
+    # Admin Post Controls
+    path('admin-panel/posts/<int:post_id>/hide/',   views.admin_hide_post,   name='admin_hide_post'),
+    path('admin-panel/posts/<int:post_id>/delete/', views.admin_delete_post, name='admin_delete_post'),
+    path('admin/tags/add/',                         views.admin_add_tag,     name='admin_add_tag'),
+
     # Admin User Actions
     path('admin-panel/users/<int:user_id>/profile/',    views.admin_user_profile,  name='admin_user_profile'),
     path('admin-panel/users/<int:user_id>/disable/',    views.admin_toggle_account, name='admin_toggle_account'),
     path('admin-panel/users/<int:user_id>/grant-admin/', views.admin_grant_admin,  name='admin_grant_admin'),
     path('admin-panel/users/<int:user_id>/delete/',     views.admin_delete_user,   name='admin_delete_user'),
-]
+
+    # User Features (Helpful)
+    path('collaborate/helpful/<int:material_id>/', views.toggle_helpful_material, name='helpful_material'),
+]

@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Collaborate - StudyOptimizer</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'main/images/app-logo-v1.svg' %}">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -157,9 +158,9 @@
                                         <span x-text="summary.views + ' views'"></span>
                                     </div>
                                     <!-- Helpful Button -->
-                                    <button class="ml-auto flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-green-600 transition-colors">
-                                        <i data-lucide="thumbs-up" class="w-4 h-4"></i>
-                                        Helpful
+                                    <button @click="toggleHelpful(summary.id)" :class="summary.is_helpful ? 'text-green-600' : 'text-gray-500 hover:text-green-600'" class="ml-auto flex items-center gap-1.5 text-sm font-medium transition-colors">
+                                        <i data-lucide="thumbs-up" class="w-4 h-4" :class="{'fill-current': summary.is_helpful}"></i>
+                                        <span x-text="summary.is_helpful ? 'Helpful!' : 'Helpful'"></span>
                                     </button>
                                 </div>
                             </div>
@@ -487,6 +488,26 @@
                         }
                     } catch (error) {
                         console.error('Error toggling like:', error);
+                    }
+                },
+
+                async toggleHelpful(id) {
+                    try {
+                        const response = await fetch(`/collaborate/helpful/${id}/`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': '{{ csrf_token }}',
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            this.sharedSummaries = this.sharedSummaries.map(s => 
+                                s.id === id ? { ...s, is_helpful: data.helpful } : s
+                            );
+                        }
+                    } catch (error) {
+                        console.error('Error toggling helpful:', error);
                     }
                 },
                 

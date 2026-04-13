@@ -105,6 +105,7 @@ class SharedMaterial(models.Model):
     content      = models.TextField()
     file         = models.FileField(upload_to='shared_files/', null=True, blank=True)
     likes        = models.ManyToManyField(User, related_name='liked_materials', blank=True)
+    helpful      = models.ManyToManyField(User, related_name='helpful_materials', blank=True)
     views        = models.IntegerField(default=0)
     created_at   = models.DateTimeField(auto_now_add=True)
     is_anonymous = models.BooleanField(default=False)

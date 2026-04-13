@@ -212,9 +212,12 @@ def google_login(request):
 
 
 def setup_totp(request):
-    if request.user.is_authenticated:
-        return redirect('dashboard')
     mfa_user_id = request.session.get('mfa_user_id')
+    
+    # If authenticated, use request.user.id if mfa_user_id isn't in session
+    if request.user.is_authenticated and not mfa_user_id:
+        mfa_user_id = request.user.id
+        
     if not mfa_user_id:
         return redirect('login')
 
@@ -239,8 +242,9 @@ def setup_totp(request):
             profile.save()
             user.backend = 'django.contrib.auth.backends.ModelBackend'
             login(request, user)
-            del request.session['mfa_user_id']
-            return redirect('admin_dashboard' if is_admin(user) else 'dashboard')
+            if 'mfa_user_id' in request.session: del request.session['mfa_user_id']
+            return redirect('admin_dashboard' if is_admin(user) else 'profile')
+
         messages.error(request, 'Invalid code. Please try scanning again.')
 
     return render(request, 'main/setup_totp.html', {'qr_code': svg_data, 'secret': secret})
@@ -444,19 +448,19 @@ def admin_collaboration(request):
     return render(request, 'main/admin/collaboration_control.html', {
         'material_list': [{
             'id':          m.id,
-            'title':       m.title,
-            'author_name': m.author.get_full_name() or m.author.username,
             'initials':    m.author.username[:2].upper(),
+            'author_name': m.author.username,
+            'title':       m.title,
             'subject':     m.subject,
             'content':     (m.content or '')[:200],
             'is_hidden':   m.is_hidden,
-            'likes':       m.like_count,
-            'comments':    m.comment_count,
+            'likes':       m.likes.count(),
+            'comments':    m.comments.count(),
             'views':       m.views,
             'time_ago':    _time_ago(m.created_at),
         } for m in materials],
-        'active_posts':       materials.count(),
-        'total_interactions': sum(m.like_count + m.comment_count for m in materials),
+        'active_posts':       materials.filter(is_hidden=False).count(),
+        'total_interactions': sum(m.likes.count() + m.comments.count() for m in materials),
         'total_views':        materials.aggregate(v=Sum('views'))['v'] or 0,
         'trending_topics':    list(
             SharedMaterial.objects.values('subject')
@@ -464,6 +468,57 @@ def admin_collaboration(request):
             .values_list('subject', flat=True)[:10]
         ),
     })
+
+
+@login_required(login_url='login')
+@user_passes_test(is_admin, login_url='login')
+@require_POST
+def admin_hide_post(request, post_id):
+    try:
+        material = get_object_or_404(SharedMaterial, id=post_id)
+        data = json.loads(request.body)
+        action = data.get('action')
+        
+        if action == 'hide':
+            material.is_hidden = True
+            msg = "Post hidden"
+        else:
+            material.is_hidden = False
+            msg = "Post restored"
+            
+        material.save()
+        log_action(request.user, f"Admin {action.capitalize()} Post", f"Post ID: {post_id}", request)
+        return JsonResponse({'status': 'success', 'message': msg})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+
+@login_required(login_url='login')
+@user_passes_test(is_admin, login_url='login')
+def admin_delete_post(request, post_id):
+    if request.method != 'DELETE':
+        return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
+    try:
+        material = get_object_or_404(SharedMaterial, id=post_id)
+        material.delete()
+        log_action(request.user, "Admin Deleted Post", f"Post ID: {post_id}", request)
+        return JsonResponse({'status': 'success', 'message': 'Post deleted'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+
+@login_required(login_url='login')
+@user_passes_test(is_admin, login_url='login')
+@require_POST
+def admin_add_tag(request):
+    try:
+        data = json.loads(request.body)
+        name = data.get('name')
+        if not name:
+            return JsonResponse({'status': 'error', 'message': 'Tag name required'}, status=400)
+        return JsonResponse({'status': 'success', 'message': 'Tag added'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
 
 # ── ADMIN — AI CONTROLS ───────────────────────────────────────────────────────
@@ -605,7 +660,7 @@ def admin_audit(request):
             'title': log.action.replace('_', ' ').title(),
             'performed_by': log.user.username if log.user else "System",
             'created_at': log.timestamp,
-            'ip_address': log.details.split('|')[0].replace('IP:', '').strip() if 'IP:' in log.details else '—',
+            'ip_address': log.details.split('IP:')[-1].split('|')[0].strip() if 'IP:' in log.details else '—',
             'source': log.details.split('|')[-1].strip() if '|' in log.details else log.details,
             'badge_class': 'badge-error' if is_tampered else ('badge-warning' if is_critical else 'badge-success'),
             'severity': 'TAMPERED' if is_tampered else ('CRITICAL' if is_critical else 'INFO')
@@ -1079,6 +1134,7 @@ def collaborate(request):
             'timeAgo':        'Just now',
             'emoji':          m.emoji,
             'liked':          m.likes.filter(id=request.user.id).exists(),
+            'is_helpful':     m.helpful.filter(id=request.user.id).exists(),
             'tags':           [m.subject],
             'file_url':       m.file.url if m.file else None,
         })
@@ -1113,12 +1169,32 @@ def collaborate(request):
         if i < len(medals):
             c['medal'] = medals[i]
 
+    trending_topics = list(
+        SharedMaterial.objects.values('subject')
+        .annotate(c=Count('subject')).order_by('-c')
+        .values_list('subject', flat=True)[:10]
+    )
+
     return render(request, 'main/collaborate.html', {
         'materials_json':        json.dumps(materials_list),
         'active_students':       User.objects.count(),
         'total_community_likes': total_community_likes,
         'top_contributors':      contributors,
+        'trending_topics':       trending_topics,
     })
+
+
+@login_required
+@require_POST
+def toggle_helpful_material(request, material_id):
+    material = get_object_or_404(SharedMaterial, id=material_id)
+    if material.helpful.filter(id=request.user.id).exists():
+        material.helpful.remove(request.user)
+        helpful = False
+    else:
+        material.helpful.add(request.user)
+        helpful = True
+    return JsonResponse({'status': 'success', 'helpful': helpful, 'helpful_count': material.helpful.count()})
 
 
 @login_required

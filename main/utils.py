@@ -13,7 +13,10 @@ def log_action(user, action, details="", request=None):
     ip_address = "Unknown"
     if request:
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        ip_address = x_forwarded_for.split(',')[0] if x_forwarded_for else request.META.get('REMOTE_ADDR')
+        if x_forwarded_for:
+            ip_address = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip_address = request.META.get('REMOTE_ADDR', 'Unknown')
     
     full_details = f"IP: {ip_address} | {details}"
     

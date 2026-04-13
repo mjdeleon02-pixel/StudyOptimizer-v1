@@ -227,7 +227,7 @@
     <div class="activity-item">
       <div class="act-dot {{ act.color }}"></div>
       <div>
-        <div class="act-text">{{ act.message }}</div>
+        <div class="act-text">{{ act.message|safe }}</div>
         <div class="act-time">{{ act.time }}</div>
       </div>
     </div>
