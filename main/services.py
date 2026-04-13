@@ -58,7 +58,8 @@ def generate_document_summary(text, file_name='Document'):
             "3. CONTENT: Capture the main idea, key arguments, and essential facts. "
             "   Answer: What is this about? What are the main takeaways?\n"
             "4. OUTPUT: Provide ONLY the summary. No commentary. "
-            "   End with a one-line 'CORE TAKEAWAY' statement.\n\n"
+            "   Use HTML tags (<b>, <ul>, <li>) for structure. "
+            "   End with a one-line 'CORE TAKEAWAY' in a <b> tag.\n\n"
             f"TEXT CONTENT:\n{text[:12000]}"
         )
         # ── Multi-Model Resilient Generation ──
@@ -140,14 +141,14 @@ def generate_document_summary(text, file_name='Document'):
                 potential_points.append(line)
             if len(potential_points) >= 10: break
 
-        points_text = "\n".join([f"• {p}" for p in potential_points]) if potential_points else "• Key focus: Detailed academic review and content extraction."
+        points_text = "".join([f"<li>{p}</li>" for p in potential_points]) if potential_points else "<li>Key focus: Detailed academic review and content extraction.</li>"
 
         fallback = (
-            f"📌 DETAILED SUMMARY OVERVIEW (OFFLINE)\n\n"
-            f"{summary_intro}\n\n"
-            f"🔍 KEY EXTRACTED POINTS:\n"
-            f"{points_text}\n\n"
-            f"CORE TAKEAWAY: Based on the extracted content, this document provides a comprehensive look at {file_name}. Review the sections above for detailed insights."
+            f"📌 <b style='color:#8C1007'>DETAILED SUMMARY OVERVIEW (OFFLINE)</b><br><br>"
+            f"{summary_intro}<br><br>"
+            f"🔍 <b>KEY EXTRACTED POINTS:</b><br>"
+            f"<ul>{points_text}</ul><br>"
+            f"<b>CORE TAKEAWAY:</b> Based on the extracted content, this document provides a comprehensive look at {file_name}. Review the sections above for detailed insights."
         )
         return fallback, f"Summary: {file_name}"
 

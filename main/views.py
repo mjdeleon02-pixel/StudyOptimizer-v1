@@ -1052,11 +1052,7 @@ def summarize_doc(request):
             file_content  = file_content,
             file_mimetype = file_mimetype,
         )
-        AuditLog.objects.create(
-            user    = request.user,
-            action  = 'Summarized Document',
-            details = f'File: {file_name}, Hash: {file_hash}',
-        )
+        log_action(request.user, 'Summarized Document', f'File: {file_name}, Hash: {file_hash}', request)
         return JsonResponse({'status': 'success', 'summary': final_summary, 'title': title_line, 'doc_id': doc.id})
 
     except Exception as e:
@@ -1109,7 +1105,8 @@ def summarize_batch(request):
 @login_required
 @csrf_protect
 def collaborate(request):
-    materials             = SharedMaterial.objects.all().order_by('-created_at')
+    # Filter out hidden posts from regular users
+    materials             = SharedMaterial.objects.filter(is_hidden=False).order_by('-created_at')
     total_community_likes = 0
     materials_list        = []
 
@@ -1131,7 +1128,7 @@ def collaborate(request):
             'likes':          m_likes,
             'views':          m.views,
             'comments':       m.comments.count(),
-            'timeAgo':        'Just now',
+            'timeAgo':        _time_ago(m.created_at),
             'emoji':          m.emoji,
             'liked':          m.likes.filter(id=request.user.id).exists(),
             'is_helpful':     m.helpful.filter(id=request.user.id).exists(),
@@ -1239,11 +1236,7 @@ def share_material(request):
             file_content = file_content,
             file_mimetype = file_mimetype,
         )
-        AuditLog.objects.create(
-            user    = request.user,
-            action  = 'Shared Material',
-            details = f'Title: {title}',
-        )
+        log_action(request.user, 'Shared Material', f'Title: {title}', request)
         return JsonResponse({'status': 'success', 'material': {
             'id':             material.id,
             'title':          material.title,
@@ -1302,11 +1295,7 @@ def add_comment(request, material_id):
         if not text:
             return JsonResponse({'status': 'error', 'message': 'Comment text required.'}, status=400)
         comment = Comment.objects.create(material=material, author=request.user, text=text)
-        AuditLog.objects.create(
-            user    = request.user,
-            action  = 'Added Comment',
-            details = f'Material ID: {material.id}',
-        )
+        log_action(request.user, 'Added Comment', f'Material ID: {material.id}', request)
         return JsonResponse({'status': 'success', 'comment': {
             'id':             comment.id,
             'author':         comment.author.username,
@@ -1359,11 +1348,7 @@ def profile(request):
             old_un = request.user.username
             request.user.username = new_username
             request.user.save()
-            AuditLog.objects.create(
-                user    = request.user,
-                action  = 'Username Updated',
-                details = f'Changed from {old_un} to {new_username}',
-            )
+            log_action(request.user, 'Username Updated', f'Changed from {old_un} to {new_username}', request)
             messages.success(request, f'Username updated to {new_username} successfully!')
             return redirect('profile')
 
@@ -1388,11 +1373,7 @@ def toggle_mfa(request):
             'Multi-Factor Authentication (MFA) has been disabled for your account. '
             'Your account is now less secure against unauthorized access.',
         )
-        AuditLog.objects.create(
-            user    = request.user,
-            action  = 'MFA Disabled',
-            details = 'User manually disabled TOTP MFA',
-        )
+        log_action(request.user, 'MFA Disabled', 'User manually disabled TOTP MFA', request)
         messages.warning(request, 'MFA has been disabled. We strongly recommend re-enabling it.')
     return redirect('profile')
 
@@ -1507,11 +1488,7 @@ def download_summary_pdf(request, doc_id):
         pdf = buffer.getvalue()
         buffer.close()
 
-        AuditLog.objects.create(
-            user    = request.user,
-            action  = 'Downloaded PDF Summary',
-            details = f'Document ID: {doc_id}',
-        )
+        log_action(request.user, 'Downloaded PDF Summary', f'Document ID: {doc_id}', request)
         # Calculate sequential number for this user
         user_summary_count = SummarizedDocument.objects.filter(
             user=request.user, 
@@ -1864,10 +1841,6 @@ def admin_delete_user(request, user_id):
         send_admin_notification("Account Deletion Notice", msg, [email])
     except Exception as e:
         print(f"Error sending deletion email: {e}")
-    AuditLog.objects.create(
-        user=request.user,
-        action="Admin Deleted User",
-        details=f"Deleted user {name}"
-    )
+    log_action(request.user, f"Admin {'Disabled' if u.is_active else 'Enabled'} User", f"Target: {u.username}", request)
     u.delete()
     return JsonResponse({'status': 'ok', 'deleted_name': name})
