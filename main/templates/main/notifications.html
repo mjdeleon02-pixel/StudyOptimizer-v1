@@ -1,0 +1,78 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Notifications - StudyOptimizer</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'main/images/app-logo-v1.svg' %}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-[#FCF9F9] min-h-screen">
+    <!-- Navbar -->
+    <nav class="sticky top-0 z-50 bg-white border-b border-gray-100">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <a href="/dashboard/" class="flex items-center gap-2">
+                <img src="{% static 'main/images/app-logo-v1.svg' %}" alt="Logo" class="w-10 h-10 object-contain">
+                <span class="font-bold text-gray-900">StudyOptimizer</span>
+            </a>
+            <div class="flex items-center gap-6 text-sm font-medium text-gray-500">
+                <a href="/dashboard/" class="hover:text-gray-900 transition-colors">Dashboard</a>
+                <a href="/upload/" class="hover:text-gray-900 transition-colors">Upload</a>
+                <a href="/tasks/" class="hover:text-gray-900 transition-colors">Tasks</a>
+                <a href="/collaborate/" class="hover:text-gray-900 transition-colors">Collaborate</a>
+                <a href="/progress/" class="hover:text-gray-900 transition-colors">Progress</a>
+                <a href="/profile/" class="hover:text-gray-900 transition-colors">Profile</a>
+                <div class="w-px h-6 bg-gray-200 mx-2"></div>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="flex items-center gap-2 hover:text-gray-900 transition-colors">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                        Logout
+                    </button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-4xl mx-auto px-6 py-12">
+        <div class="flex items-center justify-between mb-8">
+            <div class="flex items-center gap-3">
+                <h1 class="text-3xl font-bold text-gray-900">Notifications</h1>
+                <span class="text-3xl">🔔</span>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            {% if notifications %}
+                {% for notif in notifications %}
+                <div class="p-6 bg-white rounded-2xl border-2 border-gray-100 shadow-sm flex gap-4 {% if not notif.is_read %}border-l-4 border-l-[#8C1007]{% endif %}">
+                    <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="bell" class="w-6 h-6 text-[#8C1007]"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold text-gray-400 capitalize">{{ notif.created_at|timesince }} ago</span>
+                            {% if not notif.is_read %}
+                            <span class="w-2 h-2 bg-[#8C1007] rounded-full"></span>
+                            {% endif %}
+                        </div>
+                        <p class="text-gray-700 font-medium">{{ notif.message }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-24 bg-white rounded-3xl border-2 border-dashed border-gray-200">
+                    <div class="text-5xl mb-4">📭</div>
+                    <p class="text-gray-400 font-bold">All caught up! No new notifications.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
