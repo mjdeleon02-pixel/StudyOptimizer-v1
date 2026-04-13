@@ -64,7 +64,7 @@ def generate_document_summary(text, file_name='Document'):
         )
         # ── Multi-Model Resilient Generation ──
         models_to_try = [
-            'gemini-2.5-flash',
+            'gemini-1.5-flash',
             'gemini-2.0-flash',
             'gemini-flash-latest'
         ]
@@ -95,9 +95,9 @@ def generate_document_summary(text, file_name='Document'):
         print(f"DEBUG - AI Summary Link Failure: {e}")
         print(traceback.format_exc())
         
-        # --- AGGRESSIVE VERTICAL TEXT REPAIR ---
-        # 1. First Pass: Join lines that are likely part of the same sentence
-        raw_lines = text.split('\n')
+        # MEMORY SAFETY: Limit fallback processing to first 20k chars to prevent OOM
+        safe_text = str(text)[:20000]
+        raw_lines = safe_text.split('\n')
         processed_lines = []
         buffer = []
         
