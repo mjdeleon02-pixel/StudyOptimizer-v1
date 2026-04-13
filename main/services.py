@@ -61,14 +61,21 @@ def generate_document_summary(text, file_name='Document', file_mimetype='applica
         # Standardized Structural Prompt (Updated for HTML rendering)
         prompt = (
             f"Summarize the document '{file_name}' for an academic setting. "
-            "Follow these rules strictly:\n"
-            "1. ACCURACY: Reflect the original meaning without filler or unrelated text.\n"
-            "2. FORMAT: Use clear, concise sentences. Use HTML tags (<b>, <ul>, <li>) for structure. "
-            "   Short text -> 2-3 sentences. Long text -> 5-7 bullet points.\n"
-            "3. CONTENT: Capture the main idea, key arguments, and essential facts. "
-            "   Answer: What is this about? What are the main takeaways?\n"
-            "4. OUTPUT: Provide ONLY the summary. No commentary. "
-            "   End with a one-line 'CORE TAKEAWAY' in a <b> tag.\n\n"
+            "Your response MUST follow this exact structure with these exact emojis:\n\n"
+            f"📄 <b>Summary of:</b> [A brief 1-2 sentence description of what the file is about]\n\n"
+            "🔑 <b>Executive Highlights</b>\n"
+            "[Bullet points of the most important takeaways]\n\n"
+            "🧱 <b>Three-Part Breakdown</b>\n"
+            "1. [First logical section/phase]\n"
+            "2. [Second logical section/phase]\n"
+            "3. [Third logical section/phase]\n\n"
+            "📌 <b>Key Details</b>\n"
+            "[Specific facts, dates, formulas, or essential data]\n\n"
+            "🚀 <b>Implications / Next Steps</b>\n"
+            "[What to study next or how this applies to the course]\n\n"
+            "💡 <b>Takeaway</b>\n"
+            "[One final profound concluding thought]\n\n"
+            "Follow these rules strictly: Use HTML tags (<b>, <ul>, <li>) for formatting. No introductory banter. "
             f"TEXT CONTENT:\n{text[:12000]}"
         )
         
@@ -209,23 +216,35 @@ def calculate_user_metrics(user):
     }
 
 def generate_batch_synthesis(doc_ids, user):
-    """Synthesizes multiple summaries into one master study guide."""
+    """Synthesizes multiple summaries into one master study guide with a specific structure."""
     summaries_qs = SummarizedDocument.objects.filter(id__in=doc_ids, user=user)
-    combined_text = "\n\n".join([s.summary_text for s in summaries_qs])
-    if not combined_text:
+    if not summaries_qs.exists():
         return "No summaries selected."
+
+    # Build the collective text with file names
+    numbered_summaries = []
+    for i, s in enumerate(summaries_qs, 1):
+        numbered_summaries.append(f"--- FILE {i}: {s.file_name} ---\n{s.summary_text}")
+    
+    combined_text = "\n\n".join(numbered_summaries)
 
     api_key = config('GOOGLE_API_KEY', default='')
     client = genai.Client(api_key=api_key)
 
     try:
         prompt = (
-            "Synthesize these individual study summaries into one master study guide. "
-            "Follow these rules strictly:\n"
-            "1. ACCURACY: Merge content without distortion or filler.\n"
-            "2. FORMAT: Use clear sentences and bullet points. Focus on logical categorization.\n"
-            "3. OUTPUT: Provide ONLY the synthesis. End with a one-line 'CORE TAKEAWAY' for the entire batch.\n\n"
-            f"SUMMARIES:\n{combined_text[:10000]}"
+            "Produce a 'Structured Batch Summary' that synthesizes the following study materials into one cohesive guide. "
+            "Your output MUST start with a header '# 🧬 Structured Batch Summary' followed by a collective overview. "
+            "Then, for EACH file provided, summarize its content using the exact same structure as individual files:\n\n"
+            "--- FILE [N]: [NAME] ---\n"
+            "📄 <b>Summary of:</b> [What the file is about]\n"
+            "🔑 <b>Executive Highlights</b>\n"
+            "🧱 <b>Three-Part Breakdown</b>\n"
+            "📌 <b>Key Details</b>\n"
+            "🚀 <b>Implications / Next Steps</b>\n"
+            "💡 <b>Takeaway</b>\n\n"
+            "RULES: Use HTML for structure. Be concise. No commentary.\n\n"
+            f"DATA:\n{combined_text[:12000]}"
         )
         # Resilient synthesis using best available models
         models_to_try = ['gemini-flash-latest', 'gemini-2.0-flash-lite']
