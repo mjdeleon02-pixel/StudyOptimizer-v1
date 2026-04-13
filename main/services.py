@@ -26,7 +26,7 @@ def extract_text_from_file(file):
                 text = reader.pages[i].extract_text()
                 if text:
                     content += text + "\n"
-                if len(content) > 50000: break # Hard cap at 50k chars
+                if len(content) > 50000: break # Hard cap at 50key characters
         elif extension in ['docx', 'doc']:
             import docx2txt
             content = docx2txt.process(file)
@@ -86,12 +86,11 @@ def generate_document_summary(text, file_name='Document', file_mimetype='applica
             f"TEXT CONTENT:\n{text[:12000]}"
         )
         
-        # ── Multi-Model Resilient Generation (Optimized for USER's Account) ──
+        # Standard fallback logic for model names
         models_to_try = [
-            'gemini-flash-latest',   # Verified working for this account
-            'gemini-2.0-flash-lite', # Low memory fallback
-            'gemini-2.5-flash',      # Newest 
-            'gemini-2.0-flash'       # Experimental backup
+            'gemini-flash-latest',
+            'gemini-2.0-flash-lite',
+            'gemini-2.0-flash'
         ]
         
         last_error = "Unknown error"
@@ -106,7 +105,6 @@ def generate_document_summary(text, file_name='Document', file_mimetype='applica
                     summary_text = response.text
                     first_line = summary_text.strip().split('\n')[0][:80]
                     title_line = first_line if len(first_line) > 5 else file_name
-                    # Ensure minimal cleaning of HTML chars if needed, but Gemini usually outputs clean tags
                     return summary_text, title_line
             except Exception as model_err:
                 last_error = str(model_err)
@@ -119,7 +117,7 @@ def generate_document_summary(text, file_name='Document', file_mimetype='applica
         import traceback
         print(f"DEBUG - AI Summary Link Failure (Entering Offline Fallback): {e}")
         
-        # MEMORY SAFETY: Limit fallback processing to first 20k chars to prevent Render OOM crashes
+        # MEMORY SAFETY: Limit fallback processing to first 20k chars
         safe_text = str(text)[:20000]
         raw_lines = safe_text.split('\n')
         processed_lines = []
@@ -146,7 +144,7 @@ def generate_document_summary(text, file_name='Document', file_mimetype='applica
         cleaned_text = " ".join(processed_lines)
         cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
         
-        sentences = [s.strip() for s in re.split(r'(?<=[.!?]) +', cleaned_text) if len(s.strip()) > 15]
+        sentences = [s.strip() for s in re.split(r'(?<=[\.\!\?]) +', cleaned_text) if len(s.strip()) > 15]
         summary_intro = " ".join(sentences[:6]) if sentences else "This document contains extensive academic study material."
         
         potential_points = []
@@ -156,15 +154,14 @@ def generate_document_summary(text, file_name='Document', file_mimetype='applica
                 potential_points.append(line)
             if len(potential_points) >= 10: break
 
-        # Use HTML for disorganized fix (Offline Mode)
         points_text = "".join([f"<li>{p}</li>" for p in potential_points]) if potential_points else "<li>Key focus: Detailed academic review and content extraction.</li>"
 
         fallback = (
-            f"📌 <b style='color:#8C1007'>DETAILED SUMMARY OVERVIEW (OFFLINE)</b><br><br>"
-            f"{summary_intro}<br><br>"
-            f"🔍 <b>KEY EXTRACTED POINTS:</b><br>"
+            f"📄 <b>Document: {file_name}</b><br><br>"
+            f"📄 <b>Summary of:</b> {summary_intro}<br><br>"
+            f"🔑 <b>Executive Highlights</b><br>"
             f"<ul>{points_text}</ul><br>"
-            f"<b>CORE TAKEAWAY:</b> Based on the extracted content, this document provides a comprehensive look at {file_name}. Review the sections above for detailed insights."
+            f"💡 <b>Takeaway:</b> Review the document content for specific focus areas. Summary generated via offline fallback mode."
         )
         return fallback, f"Summary: {file_name}"
 
@@ -177,11 +174,11 @@ def calculate_user_metrics(user):
     completed_tasks = tasks_all.filter(completed=True).count()
     summaries_count = SummarizedDocument.objects.filter(user=user).count()
 
-    # 2. Level Calculation (Teammate's logic: 1 level per 5 tasks)
+    # 2. Level Calculation
     user_level = (completed_tasks // 5) + 1
     next_level_progress = ((completed_tasks % 5) / 5) * 100
 
-    # 3. Study Streak (Consecutive days with activity)
+    # 3. Study Streak
     streak = 0
     active_dates = set(
         list(tasks_all.filter(completed=True).values_list('created_at__date', flat=True)) +
@@ -193,7 +190,7 @@ def calculate_user_metrics(user):
         streak += 1
         check_day -= timedelta(days=1)
 
-    # 4. Weekly Hours Trend (last 7 days)
+    # 4. Weekly Hours Trend
     weekly_hours_trend = []
     for i in range(6, -1, -1):
         day = (now - timedelta(days=i)).date()
@@ -201,7 +198,7 @@ def calculate_user_metrics(user):
                 SummarizedDocument.objects.filter(user=user, created_at__date=day).count()
         weekly_hours_trend.append(day_h)
 
-    # 5. Subject Distribution (Limited to Tasks as requested by user)
+    # 5. Subject Distribution
     subject_qs = tasks_all.values('subject').annotate(count=Count('id')).order_by('-count')[:5]
     subject_labels = [s['subject'] or 'General' for s in subject_qs]
     subject_data   = [s['count'] for s in subject_qs]
@@ -223,7 +220,7 @@ def calculate_user_metrics(user):
     }
 
 def generate_batch_synthesis(doc_ids, user):
-    """Synthesizes multiple summaries into one master study guide with a specific structure."""
+    """Synthesizes multiple summaries into one master study guide."""
     summaries_qs = SummarizedDocument.objects.filter(id__in=doc_ids, user=user)
     if not summaries_qs.exists():
         return "No summaries selected."
@@ -259,8 +256,13 @@ def generate_batch_synthesis(doc_ids, user):
             "5. Executive Highlights must be bulleted.\n\n"
             f"DATA:\n{combined_text[:12000]}"
         )
-        # Resilient synthesis using best available models
-        models_to_try = ['gemini-flash-latest', 'gemini-2.0-flash-lite']
+        
+        models_to_try = [
+            'gemini-flash-latest',
+            'gemini-2.0-flash-lite',
+            'gemini-2.0-flash'
+        ]
+        
         for model_name in models_to_try:
             try:
                 response = client.models.generate_content(model=model_name, contents=prompt)
