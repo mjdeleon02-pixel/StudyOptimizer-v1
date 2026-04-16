@@ -249,3 +249,13 @@ class SystemSetting(models.Model):
     
     def __str__(self):
         return f"{self.key}: {self.value}"
+
+class Quiz(models.Model):
+    user         = models.ForeignKey(User, on_delete=models.CASCADE, related_name='quizzes')
+    document     = models.ForeignKey(SummarizedDocument, on_delete=models.CASCADE, related_name='quizzes')
+    title        = models.CharField(max_length=255)
+    questions    = models.JSONField(help_text="Stores quiz questions, options, and answers")
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Quiz: {self.title} ({self.created_at.strftime('%Y-%m-%d')})"

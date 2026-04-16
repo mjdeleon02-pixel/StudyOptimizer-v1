@@ -284,3 +284,60 @@ def search_summarized_documents(user, query):
     return SummarizedDocument.objects.filter(
         Q(user=user) & (Q(file_name__icontains=query) | Q(summary_text__icontains=query) | Q(subject__icontains=query))
     )
+
+def chat_with_summary(old_summary, user_message):
+    """Refines or modifies the summary based on user input using Gemini AI."""
+    api_key = config('GOOGLE_API_KEY', default='').strip()
+    if not api_key:
+        return False, "System Error: Missing AI API Key."
+    
+    client = genai.Client(api_key=api_key)
+    
+    prompt = (
+        f"You are a study assistant. Here is the current summary:\n\n{old_summary}\n\n"
+        f"The user wants to make these changes: {user_message}\n\n"
+        "Please provide the updated summary following the SAME structure and HTML formatting as before. "
+        "Maintain the emojis and bolding. Return ONLY the updated summary text."
+    )
+    
+    models_to_try = ['gemini-flash-latest', 'gemini-2.0-flash-lite', 'gemini-2.0-flash']
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(model=model_name, contents=prompt)
+            if response and response.text:
+                return True, response.text
+        except Exception as e:
+            print(f"Chat refinement error ({model_name}): {e}")
+            continue
+    return False, "I'm sorry, I couldn't reach the AI to update your summary. Please try again later."
+
+def generate_quiz_from_summary(summary_text, num_questions=5):
+    """Generates a multiple-choice quiz based on the provided summary text."""
+    api_key = config('GOOGLE_API_KEY', default='').strip()
+    if not api_key:
+        return None
+    
+    client = genai.Client(api_key=api_key)
+    
+    prompt = (
+        f"Based on the following study summary, create a {num_questions}-question multiple-choice quiz. "
+        "For each question, provide 4 options (A, B, C, D) and indicate the correct answer. "
+        "Format the response as a JSON object with this structure: "
+        "{\"quiz\": [{\"question\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"answer\": \"A/B/C/D\"}, ...]}\n\n"
+        f"SUMMARY CONTENT:\n{summary_text[:8000]}"
+    )
+    
+    models_to_try = ['gemini-flash-latest', 'gemini-2.0-flash-lite', 'gemini-1.5-flash']
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(model=model_name, contents=prompt)
+            if response and response.text:
+                # Extract JSON if the model returns it inside code blocks
+                match = re.search(r'\{.*\}', response.text, re.DOTALL)
+                if match:
+                    return json.loads(match.group())
+                return json.loads(response.text)
+        except Exception as e:
+            print(f"Quiz Generation Error ({model_name}): {e}")
+            continue
+    return None

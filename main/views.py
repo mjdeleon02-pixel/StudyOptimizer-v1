@@ -44,7 +44,7 @@ from django_ratelimit.decorators import ratelimit
 from .models import (
     Task, SharedMaterial, Comment, SummarizedDocument,
     ScheduleItem, UserProfile, AuditLog, KnownIP,
-    Notification,
+    Notification, Quiz,
 )
 from .services import (
     extract_text_from_file,
@@ -52,6 +52,8 @@ from .services import (
     generate_batch_synthesis,
     calculate_user_metrics,
     search_summarized_documents,
+    chat_with_summary,
+    generate_quiz_from_summary,
 )
 from .utils import send_security_alert
 
@@ -1001,7 +1003,19 @@ def upload(request):
         'emoji':   s.emoji,
         'summary': s.summary_text,
     } for s in recent_summaries]
-    return render(request, 'main/upload.html', {'recent_summaries': summaries_list})
+    
+    saved_quizzes = Quiz.objects.filter(user=request.user).order_by('-created_at')
+    quizzes_list = [{
+        'id': q.id,
+        'title': q.title,
+        'questions': q.questions,
+        'date': q.created_at.strftime('%b %d, %Y')
+    } for q in saved_quizzes]
+    
+    return render(request, 'main/upload.html', {
+        'recent_summaries': summaries_list,
+        'saved_quizzes': quizzes_list
+    })
 
 
 @login_required
@@ -1096,6 +1110,81 @@ def summarize_batch(request):
             'batch_doc_id':     batch_doc.id,
             'batch_title':      batch_doc.file_name,
         })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def chat_summary(request):
+    try:
+        data = json.loads(request.body)
+        doc_id = data.get('doc_id')
+        user_message = data.get('message')
+        
+        if not doc_id or not user_message:
+            return JsonResponse({'status': 'error', 'message': 'Missing data'}, status=400)
+            
+        doc = get_object_or_404(SummarizedDocument, id=doc_id, user=request.user)
+        success, new_summary = chat_with_summary(doc.summary_text, user_message)
+        
+        if success:
+            # Update the document with the refined summary
+            doc.summary_text = new_summary
+            doc.save()
+            log_action(request.user, "Summary Chat Refinement", f"Doc ID: {doc_id}", request)
+            return JsonResponse({'status': 'success', 'summary': new_summary})
+        else:
+            return JsonResponse({'status': 'error', 'message': new_summary})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def create_quiz(request):
+    try:
+        data = json.loads(request.body)
+        doc_id = data.get('doc_id')
+        num_questions = data.get('num_questions', 5)
+        
+        if not doc_id:
+            return JsonResponse({'status': 'error', 'message': 'Missing document ID'}, status=400)
+            
+        doc = get_object_or_404(SummarizedDocument, id=doc_id, user=request.user)
+        quiz_data = generate_quiz_from_summary(doc.summary_text, num_questions=num_questions)
+        
+        if not quiz_data:
+            return JsonResponse({'status': 'error', 'message': 'Failed to generate quiz. Content may be too short or complex.'}, status=500)
+            
+        log_action(request.user, "AI Quiz Generation", f"Doc ID: {doc_id} | Qs: {num_questions}", request)
+        return JsonResponse({'status': 'success', 'quiz': quiz_data['quiz']})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@require_POST
+def save_quiz(request):
+    try:
+        data = json.loads(request.body)
+        doc_id = data.get('doc_id')
+        quiz_questions = data.get('questions')
+        title = data.get('title', 'Knowledge Quiz')
+        
+        if not doc_id or not quiz_questions:
+            return JsonResponse({'status': 'error', 'message': 'Missing data'}, status=400)
+            
+        doc = get_object_or_404(SummarizedDocument, id=doc_id, user=request.user)
+        
+        quiz = Quiz.objects.create(
+            user=request.user,
+            document=doc,
+            title=title,
+            questions=quiz_questions
+        )
+        
+        log_action(request.user, "Quiz Saved", f"Quiz ID: {quiz.id}", request)
+        return JsonResponse({'status': 'success', 'quiz_id': quiz.id, 'message': 'Quiz saved successfully!'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 

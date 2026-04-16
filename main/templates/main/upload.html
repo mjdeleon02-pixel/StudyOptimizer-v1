@@ -46,11 +46,11 @@
     {% endif %}
 
     <!-- Content -->
-    <div x-data="uploadApp()" class="max-w-6xl mx-auto px-6 py-12">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div x-data="uploadApp()" class="max-w-full mx-auto px-6 lg:px-12 py-12">
+        <div class="grid grid-cols-1 gap-12" :class="chatOpen ? 'grid-cols-1' : 'lg:grid-cols-4'">
             
             <!-- Left Column: Upload Card -->
-            <div class="lg:col-span-2">
+            <div :class="chatOpen ? 'col-span-1' : 'lg:col-span-3'" class="space-y-12 transition-all duration-500">
                 <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                     <!-- Header -->
                     <div class="bg-[#FFF8F8] p-6 border-b border-gray-50 flex items-center gap-2">
@@ -174,18 +174,114 @@
                         <!-- Summary Display -->
                         <template x-if="summary">
                             <div class="mt-10 p-8 bg-gradient-to-br from-[#F4FFF8] to-white rounded-[2.5rem] border border-[#D1F7E2] shadow-sm">
-                                <div class="flex items-center gap-3 mb-6">
+                                <div class="flex flex-wrap items-center gap-3 mb-6">
                                     <i data-lucide="sparkles" class="w-6 h-6 text-green-600"></i>
                                     <h3 class="font-bold text-xl text-gray-900 flex-1" x-text="title || 'Summary Ready!'"></h3>
-                                    <template x-if="currentDocId">
-                                        <a :href="'/summarize/download/' + currentDocId + '/'" class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md">
-                                            <i data-lucide="download" class="w-4 h-4"></i>
-                                            Download PDF
-                                        </a>
+                                    
+                                    <div class="flex items-center gap-2">
+                                        <button @click="toggleChat()" 
+                                                class="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-xl text-sm font-bold transition-all">
+                                            <i data-lucide="message-square" class="w-4 h-4"></i>
+                                            <span x-text="chatOpen ? 'Minimize Chat' : 'Refine with Chat'"></span>
+                                        </button>
+                                        <button @click="generateQuiz()" 
+                                                class="flex items-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-sm font-bold transition-all">
+                                            <i data-lucide="brain-circuit" class="w-4 h-4"></i>
+                                            Create Quiz
+                                        </button>
+                                        <template x-if="currentDocId">
+                                            <a :href="'/summarize/download/' + currentDocId + '/'" class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md">
+                                                <i data-lucide="download" class="w-4 h-4"></i>
+                                                Download PDF
+                                            </a>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                                    <div :class="chatOpen ? 'lg:col-span-2' : 'lg:col-span-4'" class="transition-all duration-500 relative">
+                                        <!-- Blur Loading Overlay -->
+                                        <div x-show="isChatting" 
+                                             class="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-2xl animate-in fade-in duration-300">
+                                            <div class="flex flex-col items-center">
+                                                <div class="w-10 h-10 border-4 border-green-100 border-t-green-500 rounded-full animate-spin mb-4"></div>
+                                                <p class="text-xs font-bold text-green-700">AI is thinking...</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="text-sm text-gray-700 leading-relaxed font-medium whitespace-pre-line text-justify min-h-[500px]" 
+                                             :class="isChatting ? 'opacity-30 grayscale' : ''"
+                                             x-html="summary"></div>
+                                    </div>
+
+                                    <!-- Chat Pane -->
+                                    <template x-if="chatOpen">
+                                        <div class="lg:col-span-2 bg-white rounded-3xl border border-blue-50 shadow-inner p-6 flex flex-col h-[600px] animate-in slide-in-from-right duration-500">
+                                            <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-50">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                                        <i data-lucide="bot" class="w-4 h-4 text-blue-600"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h4 class="font-bold text-base text-gray-900 leading-tight">Study Assistant</h4>
+                                                        <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Always Learning</p>
+                                                    </div>
+                                                </div>
+                                                <button @click="chatOpen = false" class="text-gray-300 hover:text-gray-600 p-2 hover:bg-gray-50 rounded-xl transition-all">
+                                                    <i data-lucide="x" class="w-4 h-4"></i>
+                                                </button>
+                                            </div>
+                                            
+                                            <div class="flex-1 overflow-y-auto mb-4 space-y-4 pr-2 custom-scrollbar" id="chat-messages">
+                                                <div class="flex gap-3">
+                                                    <div class="flex-shrink-0 w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-xs">🤖</div>
+                                                    <div class="bg-gray-50 p-4 rounded-2xl rounded-tl-none text-[13px] text-gray-600 font-medium leading-relaxed max-w-[85%]">
+                                                        Hello! I can help you refine this summary. Try asking:
+                                                        <div class="mt-2 space-y-1">
+                                                            <button @click="chatInput = 'Summarize this in bullet points'" class="block text-[11px] text-blue-600 hover:underline">"Summarize this in bullet points"</button>
+                                                            <button @click="chatInput = 'Make it easier for a beginner to understand'" class="block text-[11px] text-blue-600 hover:underline">"Make it simpler for a beginner"</button>
+                                                            <button @click="chatInput = 'Add a section about the main formulas mentioned'" class="block text-[11px] text-blue-600 hover:underline">"Add a section about formulas"</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <template x-for="msg in chatHistory">
+                                                    <div class="flex gap-3" :class="msg.role === 'user' ? 'justify-end' : ''">
+                                                        <template x-if="msg.role === 'assistant'">
+                                                            <div class="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-xs">🤖</div>
+                                                        </template>
+                                                        <div :class="msg.role === 'user' ? 'bg-[#818CF8] text-white rounded-tr-none shadow-md' : 'bg-gray-50 text-gray-700 rounded-tl-none'" 
+                                                             class="p-4 rounded-2xl text-[13px] font-medium leading-relaxed max-w-[85%] shadow-sm" x-text="msg.content"></div>
+                                                        <template x-if="msg.role === 'user'">
+                                                            <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-xs">👤</div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template x-if="isChatting">
+                                                    <div class="flex gap-3">
+                                                        <div class="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-xs">🤖</div>
+                                                        <div class="bg-gray-50 p-4 rounded-2xl rounded-tl-none flex items-center gap-2">
+                                                            <span class="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce"></span>
+                                                            <span class="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+                                                            <span class="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce" style="animation-delay: 0.4s"></span>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+
+                                            <div class="relative">
+                                                <input type="text" 
+                                                       x-model="chatInput" 
+                                                       @keyup.enter="sendChatMessage()"
+                                                       placeholder="What should I change?" 
+                                                       class="w-full text-sm p-4 pr-12 rounded-2xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-blue-50 focus:border-blue-400 outline-none transition-all shadow-sm">
+                                                <button @click="sendChatMessage()" 
+                                                        class="absolute right-3 top-2.5 p-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all">
+                                                    <i data-lucide="send" class="w-4 h-4"></i>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </template>
                                 </div>
-                                <div class="text-sm text-gray-700 leading-relaxed font-medium whitespace-pre-line text-justify" x-html="summary"></div>
-
                             </div>
                         </template>
                     </div>
@@ -193,7 +289,7 @@
             </div>
 
             <!-- Right Column: Sidebar -->
-            <div class="space-y-8">
+            <div x-show="!chatOpen" class="space-y-8 animate-in fade-in zoom-in duration-500">
                 <div class="bg-white rounded-[2.5rem] border border-gray-50 shadow-sm overflow-hidden sticky top-24">
                     <div class="bg-[#FFF8F8] p-6 border-b border-gray-50 flex items-center justify-between">
                         <div class="flex items-center gap-2">
@@ -224,8 +320,32 @@
                             </template>
                         </div>
 
+                        <!-- Saved Quizzes Section -->
+                        <div class="mt-8 border-t border-gray-50 pt-8">
+                            <div class="flex items-center gap-2 mb-6">
+                                <h3 class="font-bold text-lg text-gray-900">Saved Quizzes</h3>
+                                <span class="text-lg">🧠</span>
+                            </div>
+                            <div class="space-y-4">
+                                <template x-for="q in savedQuizzes" :key="q.id">
+                                    <button @click="loadSavedQuiz(q)" class="w-full text-left p-4 bg-amber-50/30 border border-amber-100 rounded-2xl hover:border-amber-300 transition-all group">
+                                        <div class="flex items-center gap-3">
+                                            <i data-lucide="award" class="w-4 h-4 text-amber-500"></i>
+                                            <div class="flex-1 min-w-0">
+                                                <p class="text-xs font-bold text-gray-900 truncate" x-text="q.title"></p>
+                                                <p class="text-[9px] text-gray-400 font-bold" x-text="q.date"></p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                </template>
+                                <template x-if="savedQuizzes.length === 0">
+                                    <p class="text-[11px] text-gray-400 font-medium text-center py-4 italic">No saved quizzes yet</p>
+                                </template>
+                            </div>
+                        </div>
+
                         <!-- Pro Tip Card -->
-                        <div class="p-6 bg-gradient-to-br from-[#FFFBEB] to-[#FFF5D1] rounded-[2rem] border border-[#FEF3C7] shadow-sm relative overflow-hidden group">
+                        <div class="mt-8 p-6 bg-gradient-to-br from-[#FFFBEB] to-[#FFF5D1] rounded-[2rem] border border-[#FEF3C7] shadow-sm relative overflow-hidden group">
                             <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform">
                                 <i data-lucide="lightbulb" class="w-24 h-24 text-amber-500"></i>
                             </div>
@@ -239,16 +359,113 @@
                 </div>
             </div>
         </div>
+
+        <!-- Quiz Modal -->
+        <template x-if="quizModalOpen">
+            <div class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm">
+                <div class="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+                    <div class="bg-amber-50 p-6 border-b border-amber-100 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="brain-circuit" class="w-6 h-6 text-amber-600"></i>
+                            <h3 class="font-bold text-xl text-gray-900" x-text="isViewingSaved ? 'Saved Quiz' : 'Knowledge Quiz'"></h3>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <template x-if="!isViewingSaved && !isGeneratingQuiz && quizQuestions.length > 0">
+                                <div class="flex items-center gap-2 bg-white/70 px-3 py-1.5 rounded-xl border border-amber-200">
+                                    <span class="text-[10px] font-bold text-amber-700 uppercase">Questions:</span>
+                                    <select x-model="numQuestions" @change="generateQuiz()" class="bg-transparent text-xs font-bold outline-none cursor-pointer">
+                                        <option value="3">3</option>
+                                        <option value="5">5</option>
+                                        <option value="8">8</option>
+                                        <option value="10">10</option>
+                                    </select>
+                                </div>
+                            </template>
+                            <button @click="quizModalOpen = false" class="p-2 hover:bg-white/50 rounded-full transition-colors">
+                                <i data-lucide="x" class="w-6 h-6 text-gray-500"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                        <template x-if="isGeneratingQuiz">
+                            <div class="text-center py-12">
+                                <div class="w-16 h-16 border-4 border-amber-100 border-t-amber-500 rounded-full animate-spin mx-auto mb-6"></div>
+                                <h4 class="font-bold text-lg text-gray-900">Crafting your quiz...</h4>
+                                <p class="text-sm text-gray-500">Gemini is generating <span x-text="numQuestions"></span> questions from your summary.</p>
+                            </div>
+                        </template>
+
+                        <template x-if="!isGeneratingQuiz && quizQuestions.length > 0">
+                            <div class="space-y-8">
+                                <template x-for="(q, index) in quizQuestions" :key="index">
+                                    <div class="space-y-4">
+                                        <div class="flex gap-4">
+                                            <span class="flex-shrink-0 w-8 h-8 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center font-bold text-sm" x-text="index + 1"></span>
+                                            <p class="font-bold text-gray-800" x-text="q.question"></p>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pl-12">
+                                            <template x-for="(opt, optIdx) in q.options" :key="optIdx">
+                                                <button @click="selectAnswer(index, optIdx)" 
+                                                        :class="userAnswers[index] === optIdx ? (optIdx === getCorrectIdx(q.answer) ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700') : 'bg-gray-50 border-gray-100 hover:border-amber-200 text-gray-600'"
+                                                        class="p-4 rounded-2xl border text-left text-sm font-medium transition-all">
+                                                    <span class="font-bold mr-2" x-text="String.fromCharCode(65 + optIdx) + '.'"></span>
+                                                    <span x-text="opt"></span>
+                                                </button>
+                                            </template>
+                                        </div>
+                                        <template x-if="userAnswers[index] !== null">
+                                            <div class="pl-12">
+                                                <p :class="userAnswers[index] === getCorrectIdx(q.answer) ? 'text-green-600' : 'text-red-600'" class="text-xs font-bold">
+                                                    <template x-if="userAnswers[index] === getCorrectIdx(q.answer)">
+                                                        Correct! Well done.
+                                                    </template>
+                                                    <template x-if="userAnswers[index] !== getCorrectIdx(q.answer)">
+                                                        Incorrect. The correct answer is <span x-text="q.answer"></span>.
+                                                    </template>
+                                                </p>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="p-6 border-t border-gray-100 flex justify-between gap-3 bg-gray-50/50">
+                        <div class="flex items-center gap-3">
+                            <template x-if="!isViewingSaved && !isGeneratingQuiz && quizQuestions.length > 0">
+                                <button @click="saveQuiz()" 
+                                        :disabled="isSavingQuiz"
+                                        class="flex items-center gap-2 px-6 py-2.5 bg-green-50 text-green-700 border border-green-100 rounded-xl font-bold hover:bg-green-100 transition-all disabled:opacity-50">
+                                    <i data-lucide="save" class="w-4 h-4"></i>
+                                    <span x-text="isSavingQuiz ? 'Saving...' : 'Save Quiz'"></span>
+                                </button>
+                            </template>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button @click="quizModalOpen = false" class="px-6 py-2.5 rounded-xl font-bold text-gray-500 hover:text-gray-700 transition-colors">Close</button>
+                            <template x-if="!isViewingSaved">
+                                <button @click="generateQuiz()" class="px-6 py-2.5 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all shadow-md">Regenerate</button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
     </div>
 
     <!-- Data Bridges -->
     {{ recent_summaries|json_script:"recent-summaries-json" }}
+    {{ saved_quizzes|json_script:"saved-quizzes-json" }}
 
     <script>
         function uploadApp() {
             let initialData = [];
+            let initialQuizzes = [];
             try {
                 initialData = JSON.parse(document.getElementById('recent-summaries-json').textContent);
+                initialQuizzes = JSON.parse(document.getElementById('saved-quizzes-json').textContent);
             } catch (e) {
                 console.error("Failed to parse initial data", e);
             }
@@ -263,8 +480,22 @@
                 title: '',
                 errorMessage: '',
                 recentSummaries: initialData,
+                savedQuizzes: initialQuizzes,
                 loadingSubtext: 'Extracting key concepts...',
                 subtextInterval: null,
+
+                // New Features State
+                chatOpen: false,
+                chatInput: '',
+                chatHistory: [],
+                isChatting: false,
+                quizModalOpen: false,
+                isGeneratingQuiz: false,
+                isSavingQuiz: false,
+                isViewingSaved: false,
+                quizQuestions: [],
+                userAnswers: [],
+                numQuestions: 5,
 
                 initSubtext() {
                     const messages = [
@@ -471,7 +702,161 @@
                     this.currentDocId = item.id;
                     this.title = item.isBatch ? item.title : `📘 ${item.title}`;
                     this.summary = this.formatSummary(item.summary);
+                    this.chatOpen = false;
+                    this.chatHistory = [];
                     window.scrollTo({ top: 0, behavior: 'smooth' });
+                    this.$nextTick(() => { if(window.lucide) lucide.createIcons() });
+                },
+
+                // New Features Logic
+                toggleChat() {
+                    this.chatOpen = !this.chatOpen;
+                    if (this.chatOpen) {
+                        this.$nextTick(() => {
+                            if(window.lucide) lucide.createIcons();
+                            const container = document.getElementById('chat-messages');
+                            if (container) container.scrollTop = container.scrollHeight;
+                        });
+                    }
+                },
+
+                async sendChatMessage() {
+                    if (!this.chatInput.trim() || this.isChatting) return;
+                    
+                    const msg = this.chatInput.trim();
+                    this.chatHistory.push({ role: 'user', content: msg });
+                    this.chatInput = '';
+                    this.isChatting = true;
+                    
+                    this.$nextTick(() => {
+                        const container = document.getElementById('chat-messages');
+                        if (container) container.scrollTop = container.scrollHeight;
+                    });
+
+                    try {
+                        const response = await fetch('/summarize/chat/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            },
+                            body: JSON.stringify({
+                                doc_id: this.currentDocId,
+                                message: msg
+                            })
+                        });
+
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            this.summary = this.formatSummary(data.summary);
+                            this.chatHistory.push({ role: 'assistant', content: 'Summary updated successfully!' });
+                            
+                            // Update sidebar reference if it's a regular summary
+                            const item = this.recentSummaries.find(s => s.id === this.currentDocId);
+                            if (item) item.summary = data.summary;
+                        } else {
+                            this.chatHistory.push({ role: 'assistant', content: 'Error: ' + data.message });
+                        }
+                    } catch (e) {
+                        this.chatHistory.push({ role: 'assistant', content: 'Failed to connect to AI.' });
+                    } finally {
+                        this.isChatting = false;
+                        this.$nextTick(() => {
+                            const container = document.getElementById('chat-messages');
+                            if (container) container.scrollTop = container.scrollHeight;
+                        });
+                    }
+                },
+
+                async generateQuiz() {
+                    this.quizModalOpen = true;
+                    this.isGeneratingQuiz = true;
+                    this.isViewingSaved = false;
+                    this.quizQuestions = [];
+                    this.userAnswers = [];
+
+                    try {
+                        const response = await fetch('/summarize/quiz/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            },
+                            body: JSON.stringify({ 
+                                doc_id: this.currentDocId,
+                                num_questions: this.numQuestions
+                            })
+                        });
+
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            this.quizQuestions = data.quiz;
+                            this.userAnswers = new Array(data.quiz.length).fill(null);
+                        } else {
+                            alert('Quiz generation failed: ' + data.message);
+                            this.quizModalOpen = false;
+                        }
+                    } catch (e) {
+                        alert('Error connecting to quiz service.');
+                        this.quizModalOpen = false;
+                    } finally {
+                        this.isGeneratingQuiz = false;
+                        this.$nextTick(() => { if(window.lucide) lucide.createIcons() });
+                    }
+                },
+
+                async saveQuiz() {
+                    if (this.quizQuestions.length === 0 || this.isSavingQuiz) return;
+                    this.isSavingQuiz = true;
+                    
+                    try {
+                        const response = await fetch('/summarize/quiz/save/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            },
+                            body: JSON.stringify({
+                                doc_id: this.currentDocId,
+                                questions: this.quizQuestions,
+                                title: `Quiz: ${this.title}`
+                            })
+                        });
+
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            alert('Quiz saved successfully!');
+                            this.savedQuizzes.unshift({
+                                id: data.quiz_id,
+                                title: `Quiz: ${this.title}`,
+                                questions: this.quizQuestions,
+                                date: 'Just Now'
+                            });
+                        } else {
+                            alert('Failed to save quiz: ' + data.message);
+                        }
+                    } catch (e) {
+                        alert('Error saving quiz.');
+                    } finally {
+                        this.isSavingQuiz = false;
+                    }
+                },
+
+                loadSavedQuiz(q) {
+                    this.isViewingSaved = true;
+                    this.quizQuestions = q.questions;
+                    this.userAnswers = new Array(q.questions.length).fill(null);
+                    this.quizModalOpen = true;
+                    this.$nextTick(() => { if(window.lucide) lucide.createIcons() });
+                },
+
+                getCorrectIdx(ansChar) {
+                    return ansChar.toUpperCase().charCodeAt(0) - 65;
+                },
+
+                selectAnswer(qIdx, optIdx) {
+                    if (this.userAnswers[qIdx] !== null) return;
+                    this.userAnswers[qIdx] = optIdx;
                 }
             }
         }
