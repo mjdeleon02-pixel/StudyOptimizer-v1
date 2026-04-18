@@ -43,7 +43,6 @@ urlpatterns = [
     path('admin-panel/collaboration/',  views.admin_collaboration, name='admin_collaboration'),
     path('admin-panel/ai/',             views.admin_ai,            name='admin_ai'),
     path('admin-panel/analytics/',      views.admin_analytics,     name='admin_analytics'),
-    path('admin-panel/audit-logs/',     views.admin_audit,         name='admin_audit'),
 
     # Admin Post Controls
     path('admin-panel/posts/<int:post_id>/hide/',   views.admin_hide_post,   name='admin_hide_post'),

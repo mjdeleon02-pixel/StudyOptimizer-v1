@@ -1048,6 +1048,11 @@ def summarize_doc(request):
 
         final_summary, title_line = generate_document_summary(content, file_name)
 
+        # Handle Smart Buffer Rejection
+        if final_summary.startswith("⚠️"):
+            # We return a 400 or specialized error so the UI can show the specific rejection reason
+            return JsonResponse({'status': 'error', 'message': final_summary}, status=400)
+
         # ── Store raw content in Postgres for high availability ──
         uploaded_file.seek(0)
         file_content = uploaded_file.read()

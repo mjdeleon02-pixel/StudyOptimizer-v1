@@ -45,10 +45,87 @@ def extract_text_from_file(file):
         
     return content
 
+def validate_content_quality(text, file_name):
+    """
+    Smart Buffer: Screens text for nonsense or total lack of academic/study relevance.
+    Accepts informal notes, lists, and rough drafts. Rejects absolute junk.
+    """
+    if not text or len(text.strip()) < 50:
+        return False, "This file is too short (under 50 characters). Please upload a document with more substantive content.", "N/A"
+
+    api_key = config('GOOGLE_API_KEY', default='').strip()
+    if not api_key:
+        return True, "", "General" 
+    
+    client = genai.Client(api_key=api_key)
+    snippet = text[:1500]
+    
+    prompt = (
+        "You are a Content Gatekeeper for a Study App. Evaluate if this text has legitimate academic or study value.\n\n"
+        "STRICT REJECTION CRITERIA:\n"
+        "1. NONSENSE: Random characters, keyboard smashing, or repetitive symbols.\n"
+        "2. FILLER/TESTING: Text that explicitly states it is 'nonsense', 'test', or 'whatever' just to fill space.\n"
+        "3. META-HUMOR: Do NOT summarize the 'meta' meaning of nonsense. If the text is just someone saying 'this is nonsense yuhh', REJECT IT.\n"
+        "4. TOTALLY UNRELATED: Shopping lists, private chat logs, or non-educational content.\n\n"
+        "ACCEPTANCE CRITERIA:\n"
+        "- Informal student notes, lecture summaries, rough drafts, exam prep, or any educational logic.\n\n"
+        f"TEXT SNIPPET TO EVALUATE:\n{snippet}\n\n"
+        "Respond ONLY with a JSON object: {\"is_valid\": boolean, \"reason\": \"string\", \"category\": \"string\"}"
+    )
+
+    try:
+        # Fallback list for models if quota is reached
+        models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash']
+        response = None
+        
+        for model_name in models_to_try:
+            try:
+                response = client.models.generate_content(model=model_name, contents=prompt)
+                if response and response.text:
+                    break
+            except Exception as model_err:
+                print(f"Validation Fallback: {model_name} failed, trying next...")
+                continue
+
+        # 1. Check for empty response
+        if not response or not response.text:
+            print(f"Validation Error: Empty response from AI for file {file_name}")
+            return True, "", "General"
+
+        # 2. Extract and Parse JSON
+        try:
+            match = re.search(r'\{.*\}', response.text, re.DOTALL)
+            if not match:
+                return True, "", "General"
+                
+            data = json.loads(match.group())
+            is_valid = data.get('is_valid')
+            reason   = data.get('reason', "")
+            category = data.get('category', "General")
+            
+            if not isinstance(is_valid, bool):
+                return True, "", category
+                
+            # If rejected, use a polite generic message instead of the raw AI reason
+            rejection_msg = "The document you have uploaded doesn't seem to be an academic text. Please try other documents."
+            return is_valid, (rejection_msg if not is_valid else ""), category
+
+        except json.JSONDecodeError:
+            return True, "", "General"
+
+    except Exception as e:
+        print(f"Critical Validation Failure: {e}")
+        return True, "", "General"
+
 def generate_document_summary(text, file_name='Document', file_mimetype='application/octet-stream'):
     """Generates a structured summary using Gemini AI with lazy initialization and smart fallback."""
     if not text:
         return "No content to summarize.", file_name
+
+    # Step 1: Smart Buffer Validation
+    is_valid, reason, category = validate_content_quality(text, file_name)
+    if not is_valid:
+        return f"⚠️ Notice: {reason or 'This content does not appear to be study-related or contains too much nonsense to summarize.'}", file_name
 
     # Lazy initialization: Always pull fresh key from .env
     api_key = config('GOOGLE_API_KEY', default='').strip()
@@ -88,9 +165,9 @@ def generate_document_summary(text, file_name='Document', file_mimetype='applica
         
         # Standard fallback logic for model names
         models_to_try = [
-            'gemini-flash-latest',
+            'gemini-2.5-flash',
             'gemini-2.0-flash-lite',
-            'gemini-2.0-flash'
+            'gemini-1.5-flash'
         ]
         
         last_error = "Unknown error"
@@ -262,9 +339,9 @@ def generate_batch_synthesis(doc_ids, user):
         )
         
         models_to_try = [
-            'gemini-flash-latest',
+            'gemini-2.5-flash',
             'gemini-2.0-flash-lite',
-            'gemini-2.0-flash'
+            'gemini-1.5-flash'
         ]
         
         for model_name in models_to_try:
@@ -300,7 +377,7 @@ def chat_with_summary(old_summary, user_message):
         "Maintain the emojis and bolding. Return ONLY the updated summary text."
     )
     
-    models_to_try = ['gemini-flash-latest', 'gemini-2.0-flash-lite', 'gemini-2.0-flash']
+    models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash']
     for model_name in models_to_try:
         try:
             response = client.models.generate_content(model=model_name, contents=prompt)
@@ -327,7 +404,7 @@ def generate_quiz_from_summary(summary_text, num_questions=5):
         f"SUMMARY CONTENT:\n{summary_text[:8000]}"
     )
     
-    models_to_try = ['gemini-flash-latest', 'gemini-2.0-flash-lite', 'gemini-1.5-flash']
+    models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash']
     for model_name in models_to_try:
         try:
             response = client.models.generate_content(model=model_name, contents=prompt)
