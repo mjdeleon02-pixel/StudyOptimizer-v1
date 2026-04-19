@@ -32,10 +32,10 @@ import socket
 IS_LOCAL = DEBUG or socket.gethostname() in ["localhost", "127.0.0.1"]
 
 if IS_LOCAL:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+    ALLOWED_HOSTS = ['studyoptimizer-v1.onrender.com','localhost', '127.0.0.1']
 else:
     # Use config for PRODUCTION host or default to wildcard (safe if using Render/Railway)
-    ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
+    ALLOWED_HOSTS = [host.strip() for host in config('ALLOWED_HOSTS', default='*').split(',')]
 
 # Application definition
 
