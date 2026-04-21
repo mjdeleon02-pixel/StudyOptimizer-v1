@@ -1028,6 +1028,8 @@ def upload(request):
         'id': q.id,
         'title': q.title,
         'questions': q.questions,
+        'score': q.score,
+        'user_answers': q.user_answers,
         'date': q.created_at.strftime('%b %d, %Y')
     } for q in saved_quizzes]
     
@@ -1202,6 +1204,7 @@ def save_quiz(request):
         
         score = data.get('score', 0)
         is_mastered = score >= 80
+        user_answers = data.get('user_answers')
 
         quiz = Quiz.objects.create(
             user=request.user,
@@ -1209,7 +1212,8 @@ def save_quiz(request):
             title=title,
             questions=quiz_questions,
             score=score,
-            is_mastered=is_mastered
+            is_mastered=is_mastered,
+            user_answers=user_answers
         )
         
         log_action(request.user, "Quiz Saved", f"Quiz ID: {quiz.id}", request)

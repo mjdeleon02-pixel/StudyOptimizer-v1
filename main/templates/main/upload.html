@@ -396,7 +396,26 @@
                             </div>
                         </template>
 
-                        <template x-if="!isGeneratingQuiz && quizQuestions.length > 0">
+                        <template x-if="isViewingSaved && !quizStarted">
+                            <div class="text-center py-12">
+                                <h4 class="font-bold text-2xl text-gray-900 mb-2" x-text="savedQuizData?.title"></h4>
+                                <p class="text-gray-500 mb-8">This quiz has <span x-text="quizQuestions.length"></span> questions.</p>
+                                
+                                <template x-if="savedQuizData?.score > 0 || savedQuizData?.user_answers?.length > 0">
+                                    <div class="mb-8 block p-6 border rounded-xl bg-amber-50 mx-auto max-w-sm">
+                                        <p class="text-sm font-bold text-amber-800">Previous Score</p>
+                                        <p class="text-4xl font-black text-amber-600" x-text="(savedQuizData?.score || 0) + '%'"></p>
+                                    </div>
+                                </template>
+
+                                <button @click="startRetakeQuiz()" class="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold text-lg hover:bg-amber-700 shadow-lg transition-all">
+                                    <template x-if="savedQuizData?.score > 0 || savedQuizData?.user_answers?.length > 0"><span>Retake Quiz</span></template>
+                                    <template x-if="!(savedQuizData?.score > 0 || savedQuizData?.user_answers?.length > 0)"><span>Take Quiz Now</span></template>
+                                </button>
+                            </div>
+                        </template>
+
+                        <template x-if="!isGeneratingQuiz && quizQuestions.length > 0 && quizStarted">
                             <div class="space-y-8">
                                 <template x-for="(q, index) in quizQuestions" :key="index">
                                     <div class="space-y-4">
@@ -407,21 +426,29 @@
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pl-12">
                                             <template x-for="(opt, optIdx) in q.options" :key="optIdx">
                                                 <button @click="selectAnswer(index, optIdx)" 
-                                                        :class="userAnswers[index] === optIdx ? (optIdx === getCorrectIdx(q.answer) ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700') : 'bg-gray-50 border-gray-100 hover:border-amber-200 text-gray-600'"
+                                                        :disabled="isQuizChecked"
+                                                        :class="[
+                                                            !isQuizChecked && userAnswers[index] === optIdx ? 'bg-blue-50 border-blue-300 text-blue-700' : '',
+                                                            !isQuizChecked && userAnswers[index] !== optIdx ? 'bg-gray-50 border-gray-100 hover:border-amber-200 text-gray-600' : '',
+                                                            
+                                                            isQuizChecked && optIdx === getCorrectIdx(q.answer) ? 'bg-green-50 border-green-300 text-green-800' : '',
+                                                            isQuizChecked && userAnswers[index] === optIdx && optIdx !== getCorrectIdx(q.answer) ? 'bg-red-50 border-red-300 text-red-800' : '',
+                                                            isQuizChecked && userAnswers[index] !== optIdx && optIdx !== getCorrectIdx(q.answer) ? 'bg-gray-50 opacity-50 border-gray-100 text-gray-500' : ''
+                                                        ]"
                                                         class="p-4 rounded-2xl border text-left text-sm font-medium transition-all">
                                                     <span class="font-bold mr-2" x-text="String.fromCharCode(65 + optIdx) + '.'"></span>
-                                                    <span x-text="opt"></span>
+                                                    <span x-text="opt.replace(/^[A-D][.)]\s*/i, '')"></span>
                                                 </button>
                                             </template>
                                         </div>
-                                        <template x-if="userAnswers[index] !== null">
-                                            <div class="pl-12">
-                                                <p :class="userAnswers[index] === getCorrectIdx(q.answer) ? 'text-green-600' : 'text-red-600'" class="text-xs font-bold">
+                                        <template x-if="isQuizChecked">
+                                            <div class="pl-12 mt-2">
+                                                <p :class="userAnswers[index] === getCorrectIdx(q.answer) ? 'text-green-600' : 'text-red-600'" class="text-xs font-bold px-4 py-2 rounded-xl bg-gray-50 border inline-block">
                                                     <template x-if="userAnswers[index] === getCorrectIdx(q.answer)">
-                                                        Correct! Well done.
+                                                        <span>✅ Correct!</span>
                                                     </template>
                                                     <template x-if="userAnswers[index] !== getCorrectIdx(q.answer)">
-                                                        Incorrect. The correct answer is <span x-text="q.answer"></span>.
+                                                        <span>❌ Incorrect. The right answer was <span x-text="q.answer"></span>.</span>
                                                     </template>
                                                 </p>
                                             </div>
@@ -429,21 +456,37 @@
                                     </div>
                                 </template>
 
+                                <!-- Check Answers Button -->
+                                <template x-if="allQuestionsAnswered() && !isQuizChecked">
+                                    <div class="mt-8 flex justify-center">
+                                        <button @click="checkAnswers()" class="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 shadow-lg transition-all animate-in slide-in-from-bottom duration-300">
+                                            Check Answers
+                                        </button>
+                                    </div>
+                                </template>
+
                                 <!-- Score Display -->
-                                <template x-if="isQuizFinished()">
-                                    <div class="mt-8 p-6 bg-gradient-to-r from-amber-500 to-orange-500 rounded-[2rem] text-white shadow-lg animate-in slide-in-from-bottom duration-500">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center gap-4">
-                                                <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-3xl">🎯</div>
-                                                <div>
-                                                    <h4 class="font-bold text-xl">Quiz Complete!</h4>
-                                                    <p class="text-white/80 text-sm font-medium">You scored <span x-text="calculateScore()"></span>%</p>
+                                <template x-if="isQuizChecked">
+                                    <div class="mt-8">
+                                        <div class="p-6 bg-gradient-to-r from-amber-500 to-orange-500 rounded-[2rem] text-white shadow-lg animate-in slide-in-from-bottom duration-500">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-4">
+                                                    <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-3xl">🎯</div>
+                                                    <div>
+                                                        <h4 class="font-bold text-xl">Quiz Complete!</h4>
+                                                        <p class="text-white/80 text-sm font-medium">You scored <span x-text="calculateScore()"></span>%</p>
+                                                    </div>
+                                                </div>
+                                                <div class="text-right">
+                                                    <div class="text-3xl font-black" x-text="calculateScore() >= 80 ? '🌟' : '📚'"></div>
+                                                    <p class="text-[10px] font-bold uppercase tracking-widest mt-1" x-text="calculateScore() >= 80 ? 'Mastered!' : 'Keep Studying'"></p>
                                                 </div>
                                             </div>
-                                            <div class="text-right">
-                                                <div class="text-3xl font-black" x-text="calculateScore() >= 80 ? '🌟' : '📚'"></div>
-                                                <p class="text-[10px] font-bold uppercase tracking-widest mt-1" x-text="calculateScore() >= 80 ? 'Mastered!' : 'Keep Studying'"></p>
-                                            </div>
+                                        </div>
+                                        <div class="mt-4 flex justify-end">
+                                            <button @click="startRetakeQuiz()" class="px-6 py-2 border-2 border-amber-500 text-amber-600 rounded-xl font-bold hover:bg-amber-50 transition-colors shadow-sm">
+                                                Take Quiz Again
+                                            </button>
                                         </div>
                                     </div>
                                 </template>
@@ -528,6 +571,9 @@
                 isGeneratingQuiz: false,
                 isSavingQuiz: false,
                 isViewingSaved: false,
+                quizStarted: false,
+                isQuizChecked: false,
+                savedQuizData: null,
                 quizQuestions: [],
                 userAnswers: [],
                 numQuestions: 5,
@@ -809,6 +855,9 @@
                     this.quizModalOpen = true;
                     this.isGeneratingQuiz = true;
                     this.isViewingSaved = false;
+                    this.quizStarted = true;
+                    this.isQuizChecked = false;
+                    this.savedQuizData = null;
                     this.quizQuestions = [];
                     this.userAnswers = [];
 
@@ -860,7 +909,8 @@
                                 doc_id: this.currentDocId,
                                 questions: this.quizQuestions,
                                 title: `Quiz: ${this.title}`,
-                                score: this.calculateScore()
+                                score: this.calculateScore(),
+                                user_answers: this.userAnswers
                             })
                         });
 
@@ -871,6 +921,8 @@
                                 id: data.quiz_id,
                                 title: `Quiz: ${this.title}`,
                                 questions: this.quizQuestions,
+                                score: this.calculateScore(),
+                                user_answers: [...this.userAnswers],
                                 date: 'Just Now'
                             });
                             // Auto-close success message after 3s
@@ -887,27 +939,50 @@
 
                 loadSavedQuiz(q) {
                     this.isViewingSaved = true;
+                    this.savedQuizData = q;
                     this.quizQuestions = q.questions;
-                    this.userAnswers = new Array(q.questions.length).fill(null);
+                    this.quizError = '';
+                    this.quizSuccess = '';
+                    if (q.user_answers && q.user_answers.length > 0) {
+                        this.userAnswers = q.user_answers;
+                        this.quizStarted = true;
+                        this.isQuizChecked = true;
+                    } else {
+                        this.userAnswers = new Array(q.questions.length).fill(null);
+                        this.quizStarted = false;
+                        this.isQuizChecked = false;
+                    }
                     this.quizModalOpen = true;
                     this.$nextTick(() => { if(window.lucide) lucide.createIcons() });
+                },
+
+                startRetakeQuiz() {
+                    this.userAnswers = new Array(this.quizQuestions.length).fill(null);
+                    this.quizStarted = true;
+                    this.isQuizChecked = false;
                 },
 
                 getCorrectIdx(ansChar) {
                     return ansChar.toUpperCase().charCodeAt(0) - 65;
                 },
 
+                checkAnswers() {
+                    if (this.allQuestionsAnswered()) {
+                        this.isQuizChecked = true;
+                    }
+                },
+
                 selectAnswer(qIdx, optIdx) {
-                    if (this.userAnswers[qIdx] !== null) return;
+                    if (this.isQuizChecked) return;
                     this.userAnswers[qIdx] = optIdx;
                 },
 
-                isQuizFinished() {
+                allQuestionsAnswered() {
                     return this.userAnswers.length > 0 && this.userAnswers.every(a => a !== null);
                 },
 
                 calculateScore() {
-                    if (!this.isQuizFinished()) return 0;
+                    if (!this.isQuizChecked) return 0;
                     let correctCount = 0;
                     this.quizQuestions.forEach((q, idx) => {
                         if (this.userAnswers[idx] === this.getCorrectIdx(q.answer)) {

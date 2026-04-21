@@ -449,7 +449,8 @@ def generate_quiz_from_summary(summary_text, num_questions=5):
     
     prompt = (
         f"Based on the following study summary, create a {num_questions}-question multiple-choice quiz. "
-        "For each question, provide 4 options (A, B, C, D) and indicate the correct answer. "
+        "For each question, provide 4 options and indicate the correct answer (using A, B, C, or D). "
+        "IMPORTANT: Do NOT include 'A.', 'B.', 'C.', or 'D.' prefixes in the option strings themselves. "
         "Format the response as a JSON object with this structure: "
         "{\"quiz\": [{\"question\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"answer\": \"A/B/C/D\"}, ...]}\n\n"
         f"SUMMARY CONTENT:\n{summary_text[:8000]}"

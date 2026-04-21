@@ -258,6 +258,7 @@ class Quiz(models.Model):
     questions    = models.JSONField(help_text="Stores quiz questions, options, and answers")
     score        = models.IntegerField(default=0)
     is_mastered  = models.BooleanField(default=False, help_text="Passed with 80% or higher")
+    user_answers = models.JSONField(null=True, blank=True, help_text="Stores the user's selected answers")
     created_at   = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
