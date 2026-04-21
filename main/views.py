@@ -246,7 +246,7 @@ def setup_totp(request):
             user.backend = 'django.contrib.auth.backends.ModelBackend'
             login(request, user)
             if 'mfa_user_id' in request.session: del request.session['mfa_user_id']
-            return redirect('admin_dashboard' if is_admin(user) else 'profile')
+            return redirect('admin_dashboard' if is_admin(user) else 'dashboard')
 
         messages.error(request, 'Invalid code. Please try scanning again.')
 

@@ -84,14 +84,17 @@
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <div class="text-sm font-medium text-purple-100 mb-1">Your Learning Level</div>
-                        <div class="text-3xl font-bold" x-text="'Level ' + Math.floor({{ verified_count }} / 5 + 1) + ' - Academic Scholar 🎓'"></div>
+                        <div class="text-3xl font-bold" x-text="getLevelName()"></div>
                     </div>
                     <div class="text-5xl">🚀</div>
                 </div>
                 <div class="bg-white/20 rounded-full h-4 overflow-hidden backdrop-blur-sm">
-                    <div class="bg-white h-full rounded-full transition-all duration-1000" :style="'width: ' + (({{ verified_count }} % 5) / 5 * 100) + '%'"></div>
+                    <div class="bg-white h-full rounded-full transition-all duration-1000" :style="'width: ' + getLevelProgress() + '%'"></div>
                 </div>
-                <div class="mt-2 text-sm text-purple-100" x-text="(5 - ({{ verified_count }} % 5)) + ' more verified tasks to next level! 🎯'"></div>
+                <div class="mt-2 text-sm text-purple-100 flex items-center gap-2">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    <span x-text="getBadgeProgressMessage()"></span>
+                </div>
             </div>
         </div>
 
@@ -248,6 +251,51 @@
                     };
                 },
                 categoryStats: JSON.parse('{{ category_stats_json|safe }}'),
+                getLevelName() {
+                    const level = Math.floor({{ verified_count }} / 5) + 1;
+                    const titles = [
+                        "Knowledge Seeker 🔍",
+                        "Focused Scholar 📝",
+                        "Deep Thinker 🧠",
+                        "Academic Expert 🎓",
+                        "Master Researcher 🧪",
+                        "Knowledge Architect 🏛️",
+                        "Study Legend 👑"
+                    ];
+                    return `Level ${level} - ${titles[Math.min(level - 1, titles.length - 1)]}`;
+                },
+                getLevelProgress() {
+                    return (({{ verified_count }} % 5) / 5 * 100);
+                },
+                getBadgeProgressMessage() {
+                    const verified = {{ verified_count }};
+                    const mastered = {{ mastered_count }};
+                    const docs = {{ docs_count }};
+
+                    // Define next milestones
+                    const nextVerified = verified < 1 ? 1 : (verified < 10 ? 10 : (verified < 50 ? 50 : null));
+                    const nextMastered = mastered < 1 ? 1 : (mastered < 5 ? 5 : (mastered < 20 ? 20 : null));
+                    const nextDocs = docs < 10 ? 10 : (docs < 50 ? 50 : (docs < 100 ? 100 : null));
+
+                    let messages = [];
+
+                    if (nextVerified) {
+                        const diff = nextVerified - verified;
+                        const tier = nextVerified === 1 ? 'Bronze' : (nextVerified === 10 ? 'Silver' : 'Gold');
+                        messages.push(`${diff} more verified task${diff > 1 ? 's' : ''} for ${tier} Deep Thinker! 🧠`);
+                    }
+
+                    if (nextMastered) {
+                        const diff = nextMastered - mastered;
+                        const tier = nextMastered === 1 ? 'Bronze' : (nextMastered === 5 ? 'Silver' : 'Gold');
+                        messages.push(`${diff} more quiz mastery${diff > 1 ? 's' : ''} for ${tier} Knowledge Seeker! 🏹`);
+                    }
+
+                    if (messages.length === 0) return "You've achieved all main badges! Keep up the amazing work! 🏆";
+                    
+                    // Return the most relevant one (verified tasks or random)
+                    return messages[0] || "Every task brings you closer to greatness! Keep going! ✨";
+                },
                 initCharts() {
                     this.achievements = [
                         this.createTieredBadge('Seedling', 'Joined the lab!', '🌱', 1, 1, 1, 1, '#10B981'),
