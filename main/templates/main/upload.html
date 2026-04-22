@@ -419,37 +419,42 @@
                         <template x-if="!isGeneratingQuiz && quizQuestions.length > 0 && quizStarted">
                             <div class="space-y-8">
                                 <template x-for="(q, index) in quizQuestions" :key="index">
-                                    <div class="space-y-4">
+                                    <div class="space-y-5 p-6 rounded-3xl border border-gray-50 bg-white hover:border-amber-100 transition-all shadow-sm">
                                         <div class="flex gap-4">
-                                            <span class="flex-shrink-0 w-8 h-8 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center font-bold text-sm" x-text="index + 1"></span>
-                                            <p class="font-bold text-gray-800" x-text="q.question"></p>
+                                            <span class="flex-shrink-0 w-10 h-10 bg-amber-50 text-amber-700 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm" x-text="index + 1"></span>
+                                            <p class="font-bold text-gray-800 text-lg leading-snug" x-text="q.question"></p>
                                         </div>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pl-12">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <template x-for="(opt, optIdx) in q.options" :key="optIdx">
                                                 <button @click="selectAnswer(index, optIdx)" 
                                                         :disabled="isQuizChecked"
                                                         :class="[
-                                                            !isQuizChecked && userAnswers[index] === optIdx ? 'bg-blue-50 border-blue-300 text-blue-700' : '',
-                                                            !isQuizChecked && userAnswers[index] !== optIdx ? 'bg-gray-50 border-gray-100 hover:border-amber-200 text-gray-600' : '',
+                                                            !isQuizChecked && userAnswers[index] === optIdx ? 'bg-amber-600 border-amber-600 text-white shadow-lg shadow-amber-100 scale-[1.02]' : '',
+                                                            !isQuizChecked && userAnswers[index] !== optIdx ? 'bg-white border-gray-100 hover:border-amber-300 text-gray-700 hover:bg-amber-50/30' : '',
                                                             
-                                                            isQuizChecked && optIdx === getCorrectIdx(q.answer) ? 'bg-green-50 border-green-300 text-green-800' : '',
-                                                            isQuizChecked && userAnswers[index] === optIdx && optIdx !== getCorrectIdx(q.answer) ? 'bg-red-50 border-red-300 text-red-800' : '',
-                                                            isQuizChecked && userAnswers[index] !== optIdx && optIdx !== getCorrectIdx(q.answer) ? 'bg-gray-50 opacity-50 border-gray-100 text-gray-500' : ''
+                                                            isQuizChecked && optIdx === getCorrectIdx(q.answer) ? 'bg-green-500 border-green-500 text-white shadow-lg shadow-green-100' : '',
+                                                            isQuizChecked && userAnswers[index] === optIdx && optIdx !== getCorrectIdx(q.answer) ? 'bg-red-500 border-red-500 text-white shadow-lg shadow-red-100' : '',
+                                                            isQuizChecked && userAnswers[index] !== optIdx && optIdx !== getCorrectIdx(q.answer) ? 'bg-white opacity-40 border-gray-50 text-gray-400' : ''
                                                         ]"
-                                                        class="p-4 rounded-2xl border text-left text-sm font-medium transition-all">
-                                                    <span class="font-bold mr-2" x-text="String.fromCharCode(65 + optIdx) + '.'"></span>
-                                                    <span x-text="opt.replace(/^[A-D][.)]\s*/i, '')"></span>
+                                                        class="p-5 rounded-2xl border-2 text-left text-sm font-bold transition-all relative overflow-hidden group">
+                                                    <div class="flex items-center gap-3">
+                                                        <span class="w-6 h-6 rounded-lg bg-gray-100/50 flex items-center justify-center text-[10px] group-hover:bg-white/20 transition-colors" x-text="String.fromCharCode(65 + optIdx)"></span>
+                                                        <span class="flex-1" x-text="opt.replace(/^[A-D][.)]\s*/i, '')"></span>
+                                                    </div>
                                                 </button>
                                             </template>
                                         </div>
                                         <template x-if="isQuizChecked">
-                                            <div class="pl-12 mt-2">
-                                                <p :class="userAnswers[index] === getCorrectIdx(q.answer) ? 'text-green-600' : 'text-red-600'" class="text-xs font-bold px-4 py-2 rounded-xl bg-gray-50 border inline-block">
+                                            <div class="mt-2 animate-in fade-in slide-in-from-left duration-300">
+                                                <p :class="userAnswers[index] === getCorrectIdx(q.answer) ? 'text-green-600 bg-green-50 border-green-100' : 'text-red-600 bg-red-50 border-red-100'" 
+                                                   class="text-xs font-black px-4 py-3 rounded-2xl border-2 inline-flex items-center gap-2">
                                                     <template x-if="userAnswers[index] === getCorrectIdx(q.answer)">
-                                                        <span>✅ Correct!</span>
+                                                        <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                                                        <span>Brilliant! That is correct.</span>
                                                     </template>
                                                     <template x-if="userAnswers[index] !== getCorrectIdx(q.answer)">
-                                                        <span>❌ Incorrect. The right answer was <span x-text="q.answer"></span>.</span>
+                                                        <i data-lucide="x-circle" class="w-4 h-4"></i>
+                                                        <span>Not quite. The correct answer is <span class="underline" x-text="q.answer"></span>.</span>
                                                     </template>
                                                 </p>
                                             </div>

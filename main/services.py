@@ -75,7 +75,7 @@ def validate_content_quality(text, file_name):
 
     try:
         # Fallback list for models if quota is reached
-        models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash']
+        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b']
         response = None
         
         for model_name in models_to_try:
@@ -144,7 +144,7 @@ def validate_learning_reflection(reflection, task_title):
     )
 
     try:
-        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+        response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
         match = re.search(r'\{.*\}', response.text, re.DOTALL)
         if match:
             data = json.loads(match.group())
@@ -204,9 +204,9 @@ def generate_document_summary(text, file_name='Document', file_mimetype='applica
         
         # Standard fallback logic for model names
         models_to_try = [
-            'gemini-2.5-flash',
-            'gemini-2.0-flash-lite',
-            'gemini-1.5-flash'
+            'gemini-2.0-flash',
+            'gemini-1.5-flash',
+            'gemini-1.5-flash-8b'
         ]
         
         last_error = "Unknown error"
@@ -390,8 +390,8 @@ def generate_batch_synthesis(doc_ids, user):
         )
         
         models_to_try = [
-            'gemini-2.5-flash',
-            'gemini-2.0-flash-lite',
+            'gemini-2.0-flash',
+            'gemini-1.5-flash',
             'gemini-1.5-flash'
         ]
         
@@ -428,7 +428,7 @@ def chat_with_summary(old_summary, user_message):
         "Maintain the emojis and bolding. Return ONLY the updated summary text."
     )
     
-    models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash']
+    models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b']
     for model_name in models_to_try:
         try:
             response = client.models.generate_content(model=model_name, contents=prompt)
@@ -448,15 +448,20 @@ def generate_quiz_from_summary(summary_text, num_questions=5):
     client = genai.Client(api_key=api_key)
     
     prompt = (
-        f"Based on the following study summary, create a {num_questions}-question multiple-choice quiz. "
-        "For each question, provide 4 options and indicate the correct answer (using A, B, C, or D). "
-        "IMPORTANT: Do NOT include 'A.', 'B.', 'C.', or 'D.' prefixes in the option strings themselves. "
-        "Format the response as a JSON object with this structure: "
+        f"You are an expert educator. Based on the following study summary, create a {num_questions}-question multiple-choice quiz "
+        "designed to test deep conceptual understanding and key facts. "
+        "\n\nFor each question:\n"
+        "1. Provide a clear, unambiguous question.\n"
+        "2. Provide 4 distinct options (only one should be correct).\n"
+        "3. Indicate the correct answer using exactly one letter: A, B, C, or D.\n"
+        "\nIMPORTANT: Do NOT include 'A.', 'B.', 'C.', or 'D.' prefixes in the option strings themselves. "
+        "Focus on the most important learning objectives identified in the summary. "
+        "\n\nFormat the response as a valid JSON object with this exact structure: "
         "{\"quiz\": [{\"question\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"answer\": \"A/B/C/D\"}, ...]}\n\n"
         f"SUMMARY CONTENT:\n{summary_text[:8000]}"
     )
     
-    models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash']
+    models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b']
     for model_name in models_to_try:
         try:
             response = client.models.generate_content(model=model_name, contents=prompt)
@@ -464,9 +469,32 @@ def generate_quiz_from_summary(summary_text, num_questions=5):
                 # Extract JSON if the model returns it inside code blocks
                 match = re.search(r'\{.*\}', response.text, re.DOTALL)
                 if match:
-                    return json.loads(match.group())
-                return json.loads(response.text)
+                    quiz_data = json.loads(match.group())
+                    return clean_quiz_data(quiz_data)
+                quiz_data = json.loads(response.text)
+                return clean_quiz_data(quiz_data)
         except Exception as e:
             print(f"Quiz Generation Error ({model_name}): {e}")
             continue
     return None
+
+def clean_quiz_data(data):
+    """Ensures quiz options don't have 'A.' prefixes and answers are standardized."""
+    if not data or 'quiz' not in data:
+        return data
+        
+    for q in data['quiz']:
+        # Clean options: remove any "A. ", "1) ", etc prefixes if the AI added them
+        if 'options' in q:
+            q['options'] = [re.sub(r'^[A-Z0-9][\s\.\)\-‐\—]+', '', str(opt)).strip() for opt in q['options'] if opt]
+            
+        # Clean answer: ensure it's just A, B, C, or D
+        if 'answer' in q:
+            ans = str(q['answer']).strip().upper()
+            match = re.search(r'[A-D]', ans)
+            if match:
+                q['answer'] = match.group()
+            else:
+                # Fallback if no letter found
+                q['answer'] = 'A'
+    return data
