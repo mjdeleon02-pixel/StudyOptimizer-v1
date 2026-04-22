@@ -1,4 +1,8 @@
+# Python 3.12.2
 absl-py>=2.1.0
+scikit-learn
+pandas
+django-allauth
 annotated-doc>=0.0.1
 annotated-types>=0.7.0
 anyio>=4.3.0

@@ -7,84 +7,83 @@ StudyOptimizer is a premium, all-in-one web application designed to streamline s
 ## ✨ Core Features
 
 ### 📄 AI Document Summarizer
-* **Intelligent Synthesis**: Upload academic PDFs or documents and receive structured, sponsor-ready summaries.
+* **Intelligent Synthesis**: Upload academic PDFs or documents and receive structured, sponsor-ready summaries via Gemini AI.
 * **Knowledge Persistence**: Automatically save summaries to your personal library and share them with the community.
-* **Estimated Study Value**: Each document summarized contributes **1 hour** to your total study time.
+
+### 🧠 AI Smart Quiz & Chat
+* **Instant Quiz Generation**: Transform your study summaries into interactive multiple-choice quizzes to test your knowledge.
+* **Study Assistant Chat**: Refine your summaries in real-time by chatting with the AI (e.g., "Make this simpler" or "Explain the main formulas").
 
 ### 📅 Interactive Study Schedule
 * **Personalized Planner**: Directly add and manage weekly study sessions through a sleek, modal-based interface (accessible from the Dashboard).
 * **Real-Time Updates**: Instant visual feedback when adding or removing schedule items.
-* **Color-Coded Activities**: Visual categorization of study blocks for better scanability.
 
 ### 🔧 Task Manager & Progress Tracking
 * **Smart Organization**: Categorize tasks by subject and priority.
-* **Accuracy-Driven Metrics**: Real-time calculation of **Study Streaks** and **Completion Rates**.
-* **Real Study Hours**: Automatically estimates study time—**2 hours** per completed task.
+* **Accuracy-Driven Metrics**: Real-time calculation of **Study Streaks**, **Completion Rates**, and **AI-Verified Reflections**.
 
 ### 👤 Profile & Gamification
-* **Level System**: Level up your academic journey! Every 5 completed tasks progress you to the next level (e.g., Level 1 "Rising Star").
-* **Achievements**: Unlock trophies like "Study Starter," "7-Day Streak," and "Speed Learner" as you hit real milestones.
-* **Global Stats**: Track your total documents, task success rate, and cumulative study hours at a glance.
-
-### 🤝 Strategic Collaboration
-* **Shared Repository**: Access and like study materials shared by other students in the "Collaborate" hub.
-* **Interactive Comments**: Engage in academic discussions directly on shared summaries.
-
-### 🔔 Smart Notification Hub
-* **Real-Time Deadlines**: A non-intrusive dropdown hub that automatically tracks your upcoming task deadlines and alerts you to urgent priorities.
+* **Level System**: Progress through levels for every 5 completed tasks.
+* **Achievements**: Unlock trophies like "Night Owl," "Mastery Badge," and "Study Starter."
 
 ---
 
 ## 🛠️ Tech Stack
 
 ### Backend
-* **Django**: Robust Python framework for secure and scalable architecture.
-* **PostgreSQL / SQLite**: Flexible database options for high-performance data persistence.
-* **Cloudinary**: Cloud-based storage for securely managing and serving student-uploaded study materials.
-* **Python-Docx & PyPDF2**: Backend libraries for deep document parsing.
+* **Python 3.12** & **Django**: Secure and scalable core architecture.
+* **Gemini AI**: High-performance AI for summarization, chat, and quiz logic.
+* **PostgreSQL / SQLite**: Flexible database options.
+* **Cloudinary**: Cloud-based storage for study materials.
 
 ### Frontend
-* **Tailwind CSS**: Utility-first CSS framework for a premium, glassmorphic UI.
-* **Alpine.js**: Lightweight JavaScript framework for reactive state-management and interactivity.
-* **Lucide Icons**: Consistent, high-quality iconography across the platform.
-* **Chart.js**: Interactive data visualization for your Weekly Activity trend.
+* **Tailwind CSS**: Premium, glassmorphic UI.
+* **Alpine.js**: Reactive state-management.
+* **Lucide Icons** & **Chart.js**: High-quality visuals and data tracking.
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-* Python 3.8+
-* Pip (Python package manager)
+* **Python 3.12+**
+* **Docker** (Optional, for containerized setup)
+* **Google Gemini API Key** (Set in `.env`)
 
-### Installation
+### Option 1: Manual Installation
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/mardnts28/StudyOptimizer.git
-   cd Study_Optimizer
+   git clone https://github.com/mardnts28/Study_Optimizer.git
+   cd StudyOptimizer-v1
    ```
 
 2. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
-   *Alternatively, install core packages individually:*
-   ```bash
-   pip install django PyPDF2 python-docx cloudinary django-cloudinary-storage python-decouple
-   ```
 
-3. **Database Migration**:
+3. **Setup Environment**:
+   Create a `.env` file based on `.env.example` and add your `GOOGLE_API_KEY`.
+
+4. **Database Migration**:
    ```bash
    python manage.py makemigrations
    python manage.py migrate
    ```
 
-4. **Run Server**:
+5. **Run Server**:
    ```bash
    python manage.py runserver
    ```
-   Access the app at `http://127.0.0.1:8000/`.
+
+### Option 2: Docker Installation (Recommended)
+
+1. **Build and Start**:
+   ```bash
+   docker-compose up --build
+   ```
+2. **Access the app** at `http://127.0.0.1:8000/`.
 
 ---
 
@@ -93,28 +92,24 @@ StudyOptimizer is a premium, all-in-one web application designed to streamline s
 ```text
 Study_Optimizer/
 ├── main/               # Core application logic
-│   ├── models.py       # Data definitions (Task, Schedule, Summary, SharedMaterial, Comment)
-│   ├── views.py        # Controller logic & API endpoints (Real-time calculations)
-│   ├── urls.py         # App-specific routing
-│   └── templates/      # Premium HTML interfaces with Alpine.js & Tailwind
 ├── studyoptimizer/     # Project settings & configuration
 ├── manage.py           # Django administrative utility
+├── Dockerfile          # Container configuration
+├── docker-compose.yml  # Multi-container orchestration
 └── README.md           # Documentation
 ```
 
 ---
 
-## 🔒 Security
-StudyOptimizer implements standard Django security practices, including:
-* Secure authentication and session management.
-* CSRF protection on all interactive forms.
-* Login requirements for all data-sensitive pages.
-* Password strength validation on registration.
+## 🔒 Security & Best Practices
+* **STRIDE Threat Modeling**: Protection against Spoofing, Tampering, and Elevation of Privilege.
+* **CSRF & CSP Protection**: Hardened security headers and form validation.
+* **MFA (Optional)**: Support for TOTP-based Multi-Factor Authentication.
 
 ---
 
-## 📝 License
-Distributed under the MIT License. See `LICENSE` for more information.
+*Built with ❤️ for students, by the StudyOptimizer team.*
+LICENSE` for more information.
 
 ---
 *Built with ❤️ for students, by the StudyOptimizer team.*

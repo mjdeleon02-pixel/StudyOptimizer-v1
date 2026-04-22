@@ -75,7 +75,7 @@ def validate_content_quality(text, file_name):
 
     try:
         # Fallback list for models if quota is reached
-        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b']
+        models_to_try = ['gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash']
         response = None
         
         for model_name in models_to_try:
@@ -205,6 +205,7 @@ def generate_document_summary(text, file_name='Document', file_mimetype='applica
         # Standard fallback logic for model names
         models_to_try = [
             'gemini-2.0-flash',
+            'gemini-flash-latest',
             'gemini-1.5-flash',
             'gemini-1.5-flash-8b'
         ]
@@ -391,7 +392,7 @@ def generate_batch_synthesis(doc_ids, user):
         
         models_to_try = [
             'gemini-2.0-flash',
-            'gemini-1.5-flash',
+            'gemini-flash-latest',
             'gemini-1.5-flash'
         ]
         
@@ -428,7 +429,7 @@ def chat_with_summary(old_summary, user_message):
         "Maintain the emojis and bolding. Return ONLY the updated summary text."
     )
     
-    models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b']
+    models_to_try = ['gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash']
     for model_name in models_to_try:
         try:
             response = client.models.generate_content(model=model_name, contents=prompt)
@@ -447,6 +448,9 @@ def generate_quiz_from_summary(summary_text, num_questions=5):
     
     client = genai.Client(api_key=api_key)
     
+    # Strip HTML tags from summary before sending to AI for quiz generation
+    clean_summary = re.sub(r'<[^>]*>', '', summary_text)
+    
     prompt = (
         f"You are an expert educator. Based on the following study summary, create a {num_questions}-question multiple-choice quiz "
         "designed to test deep conceptual understanding and key facts. "
@@ -458,10 +462,10 @@ def generate_quiz_from_summary(summary_text, num_questions=5):
         "Focus on the most important learning objectives identified in the summary. "
         "\n\nFormat the response as a valid JSON object with this exact structure: "
         "{\"quiz\": [{\"question\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"answer\": \"A/B/C/D\"}, ...]}\n\n"
-        f"SUMMARY CONTENT:\n{summary_text[:8000]}"
+        f"SUMMARY CONTENT:\n{clean_summary[:8000]}"
     )
     
-    models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b']
+    models_to_try = ['gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash']
     for model_name in models_to_try:
         try:
             response = client.models.generate_content(model=model_name, contents=prompt)
